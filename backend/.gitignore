@@ -1,0 +1,39 @@
+# ========================
+# Node
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ========================
+# Environment Variables
+# ========================
+.env
+.env.local
+.env.production
+
+# ========================
+# Google Credentials
+# ========================
+google-credentials.json
+*-credentials.json
+*.keyfile.json
+
+# ========================
+# Uploads (temp files)
+# ========================
+uploads/
+temp/
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# IDE
+# ========================
+.vscode/
+.idea/

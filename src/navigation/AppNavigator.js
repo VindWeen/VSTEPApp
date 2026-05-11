@@ -23,6 +23,9 @@ import SpeakingResultScreen from '../screens/Speaking/SpeakingResultScreen';
 // History
 import HistoryScreen from '../screens/History/HistoryScreen';
 
+// Profile
+import ProfileScreen from '../screens/Profile/ProfileScreen';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -125,6 +128,16 @@ function MainTabs() {
             <TabIcon emoji="📊" label="Lịch sử" focused={focused} color={focused ? '#37474F' : '#aaa'} />
           ),
           tabBarActiveTintColor: '#37474F',
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="👤" label="Hồ sơ" focused={focused} color={focused ? '#E65100' : '#aaa'} />
+          ),
+          tabBarActiveTintColor: '#E65100',
         }}
       />
     </Tab.Navigator>

@@ -1,50 +1,71 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, ScrollView, Platform,
+  ActivityIndicator, Alert, Platform, Animated, Easing,
+  SafeAreaView, StatusBar,
 } from 'react-native';
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import { Ionicons } from '@expo/vector-icons';
 import { uploadSpeaking, transcribeSpeaking, scoreSpeaking } from '../../services/api';
 
-const STEPS = ['record', 'uploading', 'transcribing', 'scoring', 'done', 'error'];
-
-const STEP_LABELS = {
-  record: 'Sẵn sàng ghi âm',
-  uploading: 'Đang tải lên...',
-  transcribing: 'Đang chuyển giọng nói thành văn bản...',
-  scoring: 'AI đang chấm điểm...',
-  done: 'Hoàn thành!',
-  error: 'Có lỗi xảy ra',
+const MOCK_TASK = {
+  _id: '1',
+  prompt: 'Describe a place in your city that you enjoy visiting. Why do you like it?...',
+  level: 'B1',
+  duration: 90,
+  title: 'Speaking Task 1',
 };
 
-const SAMPLE_TOPICS = [
-  'Talk about your hometown and what you like about it.',
-  'Describe a memorable trip you have taken.',
-  'What are the advantages and disadvantages of working from home?',
-  'Describe a person who has influenced you greatly.',
-  'Talk about a hobby or sport you enjoy.',
-];
+export default function SpeakingScreen({ route, navigation }) {
+  const test = route.params?.test || MOCK_TASK;
+  const MAX_TIME = test.duration || 90;
 
-export default function SpeakingScreen({ navigation }) {
-  const [step, setStep] = useState('record');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [speakingId, setSpeakingId] = useState(null);
-  const [transcript, setTranscript] = useState('');
-  const [topic, setTopic] = useState(SAMPLE_TOPICS[0]);
-  const [result, setResult] = useState(null);
-  const [level, setLevel] = useState('B1');
+  const [processing, setProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState('');
 
   const recordingRef = useRef(null);
   const timerRef = useRef(null);
 
+  // Waveform animation values
+  const waveAnims = useRef(Array.from({ length: 7 }, () => new Animated.Value(0.3))).current;
+  const micPulseAnim = useRef(new Animated.Value(1)).current;
+  const waveLoopRef = useRef(null);
+
   useEffect(() => {
     return () => {
       timerRef.current && clearInterval(timerRef.current);
-      recordingRef.current?.stopAndUnloadAsync();
+      recordingRef.current?.stopAndUnloadAsync().catch(() => {});
+      waveLoopRef.current?.stop();
     };
   }, []);
+
+  const startWaveAnimation = () => {
+    const animations = waveAnims.map((val, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 80),
+          Animated.timing(val, { toValue: 1, duration: 400 + i * 60, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
+          Animated.timing(val, { toValue: 0.2, duration: 400 + i * 60, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
+        ])
+      )
+    );
+    const micPulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(micPulseAnim, { toValue: 1.15, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(micPulseAnim, { toValue: 1, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    );
+    waveLoopRef.current = Animated.parallel([...animations, micPulse]);
+    waveLoopRef.current.start();
+  };
+
+  const stopWaveAnimation = () => {
+    waveLoopRef.current?.stop();
+    waveAnims.forEach(val => val.setValue(0.3));
+    micPulseAnim.setValue(1);
+  };
 
   const requestPermissions = async () => {
     const { status } = await Audio.requestPermissionsAsync();
@@ -59,44 +80,38 @@ export default function SpeakingScreen({ navigation }) {
     }
 
     try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
       const recording = new Audio.Recording();
       await recording.prepareToRecordAsync({
         android: {
-          extension: '.wav',
-          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+          extension: '.wav', outputFormat: Audio.AndroidOutputFormat.DEFAULT,
           audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 256000,
+          sampleRate: 16000, numberOfChannels: 1, bitRate: 256000,
         },
         ios: {
-          extension: '.wav',
-          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+          extension: '.wav', outputFormat: Audio.IOSOutputFormat.LINEARPCM,
           audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 256000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
+          sampleRate: 16000, numberOfChannels: 1, bitRate: 256000,
+          linearPCMBitDepth: 16, linearPCMIsBigEndian: false, linearPCMIsFloat: false,
         },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 128000,
-        },
+        web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
       });
       await recording.startAsync();
       recordingRef.current = recording;
       setIsRecording(true);
       setRecordingTime(0);
+      startWaveAnimation();
 
       timerRef.current = setInterval(() => {
-        setRecordingTime((t) => t + 1);
+        setRecordingTime(t => {
+          if (t + 1 >= MAX_TIME) {
+            clearInterval(timerRef.current);
+            stopAndProcess();
+            return MAX_TIME;
+          }
+          return t + 1;
+        });
       }, 1000);
     } catch (e) {
       Alert.alert('Lỗi', 'Không thể bắt đầu ghi âm: ' + e.message);
@@ -105,212 +120,284 @@ export default function SpeakingScreen({ navigation }) {
 
   const stopAndProcess = async () => {
     if (!recordingRef.current) return;
+    clearInterval(timerRef.current);
+    stopWaveAnimation();
+    setIsRecording(false);
 
     try {
-      clearInterval(timerRef.current);
-      setIsRecording(false);
       await recordingRef.current.stopAndUnloadAsync();
       const uri = recordingRef.current.getURI();
       recordingRef.current = null;
-
       if (!uri) throw new Error('Không lấy được file ghi âm');
 
-      // UPLOAD
-      setStep('uploading');
+      setProcessing(true);
+
+      // Upload
+      setProcessingStep('Đang tải lên...');
       const formData = new FormData();
       formData.append('audio', {
         uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
-        type: 'audio/wav',
-        name: 'speaking.wav',
+        type: 'audio/wav', name: 'speaking.wav',
       });
-      formData.append('prompt', topic);
-      formData.append('level', level);
+      formData.append('prompt', test.prompt || MOCK_TASK.prompt);
+      formData.append('level', test.level || 'B1');
       formData.append('partType', 'Part 2');
 
       const uploadRes = await uploadSpeaking(formData);
-      const id = uploadRes.data.data.speakingId; // ← backend trả về speakingId
-      setSpeakingId(id);
+      const id = uploadRes.data.data.speakingId;
 
-      // TRANSCRIBE
-      setStep('transcribing');
+      // Transcribe
+      setProcessingStep('Đang chuyển giọng nói thành văn bản...');
       const transcribeRes = await transcribeSpeaking(id);
-      setTranscript(transcribeRes.data.data.transcript || '');
 
-      // SCORE
-      setStep('scoring');
+      // Score
+      setProcessingStep('AI đang chấm điểm...');
       const scoreRes = await scoreSpeaking(id);
-      setResult(scoreRes.data.data);
-      setStep('done');
 
-      navigation.navigate('SpeakingResult', {
+      navigation.replace('SpeakingResult', {
         result: scoreRes.data.data,
         transcript: transcribeRes.data.data.transcript,
-        topic,
-        level,
+        topic: test.prompt || MOCK_TASK.prompt,
+        level: test.level || 'B1',
         duration: recordingTime,
+        test,
       });
     } catch (e) {
-      console.error('Speaking error:', e.message);
-      setStep('error');
+      setProcessing(false);
       Alert.alert(
         'Lỗi',
-        'Không thể xử lý bài nói.\n\n' +
-        (e.response?.data?.message || e.message) +
-        '\n\nHãy kiểm tra cài đặt Cloudinary trong .env'
+        'Không thể xử lý bài nói.\n\n' + (e.response?.data?.message || e.message)
       );
     }
   };
 
-  const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
 
-  const isProcessing = ['uploading', 'transcribing', 'scoring'].includes(step);
+  const progressPct = (recordingTime / MAX_TIME) * 100;
+
+  if (processing) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.processingContainer}>
+          <ActivityIndicator size="large" color="#6A1B9A" />
+          <Text style={styles.processingText}>{processingStep}</Text>
+          <Text style={styles.processingSubText}>Vui lòng chờ trong giây lát...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🎙️ Luyện Nói</Text>
-        <Text style={styles.headerSub}>AI đánh giá theo tiêu chí VSTEP</Text>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => {
+            if (isRecording) {
+              Alert.alert('Dừng ghi âm?', 'Bài ghi âm sẽ bị huỷ.', [
+                { text: 'Tiếp tục', style: 'cancel' },
+                { text: 'Huỷ', style: 'destructive', onPress: () => {
+                  clearInterval(timerRef.current);
+                  stopWaveAnimation();
+                  recordingRef.current?.stopAndUnloadAsync();
+                  navigation.goBack();
+                }},
+              ]);
+            } else {
+              navigation.goBack();
+            }
+          }}
+        >
+          <Ionicons name="close" size={20} color="#1A1A2E" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Ghi âm</Text>
+        <View style={[styles.timerBadge, isRecording && styles.timerBadgeActive]}>
+          <Ionicons name="time-outline" size={14} color={isRecording ? '#6A1B9A' : '#9E9E9E'} />
+          <Text style={[styles.timerBadgeText, isRecording && styles.timerBadgeTextActive]}>
+            {formatTime(recordingTime)} / {MAX_TIME}s
+          </Text>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        {/* Level */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Trình độ</Text>
-          <View style={styles.chipRow}>
-            {['A2', 'B1', 'B2', 'C1'].map((l) => (
-              <TouchableOpacity key={l} style={[styles.chip, level === l && styles.chipActive]} onPress={() => setLevel(l)}>
-                <Text style={[styles.chipText, level === l && styles.chipTextActive]}>{l}</Text>
-              </TouchableOpacity>
-            ))}
+      {/* Progress bar at top */}
+      {isRecording && (
+        <View style={styles.topProgressBg}>
+          <View style={[styles.topProgressFill, { width: `${progressPct}%` }]} />
+        </View>
+      )}
+
+      {/* Task prompt */}
+      <View style={styles.promptCard}>
+        <Text style={styles.promptLabel}>ĐỀ BÀI</Text>
+        <Text style={styles.promptText} numberOfLines={3}>
+          {test.prompt || MOCK_TASK.prompt}
+        </Text>
+      </View>
+
+      {/* Main recording area */}
+      <View style={styles.recordArea}>
+        {/* Mic button with pulse rings */}
+        <View style={styles.micContainer}>
+          {isRecording && (
+            <>
+              <Animated.View style={[styles.micRing, styles.micRing3, { opacity: 0.15 }]} />
+              <Animated.View style={[styles.micRing, styles.micRing2, { opacity: 0.25 }]} />
+              <Animated.View style={[styles.micRing, styles.micRing1, { opacity: 0.35 }]} />
+            </>
+          )}
+          <Animated.View style={[styles.micBtn, { transform: [{ scale: micPulseAnim }] }]}>
+            <Ionicons name="mic" size={40} color="#fff" />
+          </Animated.View>
+        </View>
+
+        {/* Waveform */}
+        <View style={styles.waveContainer}>
+          {waveAnims.map((anim, i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.wavebar,
+                {
+                  height: anim.interpolate({ inputRange: [0, 1], outputRange: [6, 40] }),
+                  opacity: isRecording ? 1 : 0.3,
+                },
+              ]}
+            />
+          ))}
+        </View>
+
+        {/* Play/Playback icon */}
+        <View style={styles.playbackRow}>
+          <View style={styles.playbackBtn}>
+            <Ionicons name="play-circle-outline" size={36} color="#6A1B9A" />
           </View>
         </View>
 
-        {/* Topic selector */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>📋 Chủ đề</Text>
-          {SAMPLE_TOPICS.map((t) => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.topicBtn, topic === t && styles.topicBtnActive]}
-              onPress={() => setTopic(t)}
-            >
-              <Text style={[styles.topicText, topic === t && styles.topicTextActive]}>{t}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Text style={styles.recordHint}>
+          {isRecording ? 'Nhấn để dừng ghi âm' : 'Nhấn nút mic để bắt đầu'}
+        </Text>
+      </View>
 
-        {/* Record area */}
-        <View style={styles.recordCard}>
-          {isProcessing ? (
-            <View style={styles.processingArea}>
-              <ActivityIndicator size="large" color="#7B1FA2" />
-              <Text style={styles.stepText}>{STEP_LABELS[step]}</Text>
-              {step === 'transcribing' && transcript && (
-                <Text style={styles.transcriptPreview}>{transcript}</Text>
-              )}
-            </View>
-          ) : (
-            <>
-              <Text style={styles.timerText}>
-                {isRecording ? `⏺ ${formatTime(recordingTime)}` : '00:00'}
-              </Text>
-              {isRecording && (
-                <Text style={styles.recordingHint}>Đang ghi âm... nói tự nhiên</Text>
-              )}
-              <View style={styles.recBtnRow}>
-                <TouchableOpacity
-                  style={[styles.recBtn, isRecording ? styles.recBtnStop : styles.recBtnStart]}
-                  onPress={isRecording ? stopAndProcess : startRecording}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.recBtnIcon}>{isRecording ? '⏹' : '🎙'}</Text>
-                  <Text style={styles.recBtnText}>
-                    {isRecording ? 'Dừng & Nộp bài' : 'Bắt đầu ghi âm'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              {step === 'error' && (
-                <TouchableOpacity style={styles.retryBtn} onPress={() => setStep('record')}>
-                  <Text style={styles.retryText}>Thử lại</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
+      {/* Progress footer */}
+      <View style={styles.progressFooter}>
+        <View style={styles.progressInfo}>
+          <Text style={styles.progressLabel}>Tiến độ ghi âm</Text>
+          <Text style={styles.progressTime}>{recordingTime} / {MAX_TIME} giây</Text>
         </View>
+        <View style={styles.progressBarBg}>
+          <View style={[styles.progressBarFill, { width: `${progressPct}%` }]} />
+        </View>
+      </View>
 
-        {/* Tips */}
-        <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>💡 Tiêu chí VSTEP Speaking</Text>
-          {['Fluency & Coherence – Nói lưu loát, mạch lạc',
-            'Lexical Resource – Dùng từ vựng đa dạng',
-            'Grammatical Range – Ngữ pháp đúng và phong phú',
-            'Pronunciation – Phát âm rõ ràng, dễ nghe'].map((t) => (
-            <Text key={t} style={styles.tipItem}>• {t}</Text>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
+      {/* Action button */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.actionBtn, isRecording ? styles.actionBtnStop : styles.actionBtnStart]}
+          onPress={isRecording ? stopAndProcess : startRecording}
+          activeOpacity={0.85}
+        >
+          <Ionicons name={isRecording ? 'stop-circle' : 'mic'} size={22} color="#fff" />
+          <Text style={styles.actionBtnText}>
+            {isRecording ? 'Dừng & Nộp bài' : 'Bắt đầu ghi âm'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
+  safeArea: { flex: 1, backgroundColor: '#fff' },
+
+  processingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3E5F5', gap: 16 },
+  processingText: { fontSize: 16, fontWeight: '700', color: '#6A1B9A' },
+  processingSubText: { fontSize: 13, color: '#9575CD' },
+
   header: {
-    backgroundColor: '#6A1B9A', paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    paddingTop: Platform.OS === 'android' ? 20 : 14,
+    borderBottomWidth: 1, borderBottomColor: '#F0F2F5',
   },
-  headerTitle: { fontSize: 26, fontWeight: '700', color: '#fff' },
-  headerSub: { fontSize: 14, color: '#CE93D8', marginTop: 4 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    marginBottom: 12, elevation: 2,
+  closeBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F5F5',
+    justifyContent: 'center', alignItems: 'center',
   },
-  cardLabel: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 10 },
-  chipRow: { flexDirection: 'row', gap: 8 },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-    borderWidth: 1.5, borderColor: '#DDD', backgroundColor: '#F9F9F9',
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  timerBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F5F5F5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
   },
-  chipActive: { backgroundColor: '#6A1B9A', borderColor: '#6A1B9A' },
-  chipText: { color: '#666', fontWeight: '600', fontSize: 13 },
-  chipTextActive: { color: '#fff' },
-  topicBtn: {
-    padding: 12, borderRadius: 10, borderWidth: 1.5, borderColor: '#DDD',
-    marginBottom: 8, backgroundColor: '#F9F9F9',
-  },
-  topicBtnActive: { borderColor: '#6A1B9A', backgroundColor: '#F3E5F5' },
-  topicText: { color: '#555', fontSize: 13, lineHeight: 18 },
-  topicTextActive: { color: '#4A148C', fontWeight: '600' },
-  recordCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 24,
-    marginBottom: 12, elevation: 3, alignItems: 'center', minHeight: 200,
-    justifyContent: 'center',
-  },
-  timerText: { fontSize: 48, fontWeight: '900', color: '#1A1A2E', letterSpacing: 2 },
-  recordingHint: { color: '#E53935', fontSize: 14, marginTop: 4 },
-  recBtnRow: { marginTop: 20 },
-  recBtn: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 16,
-    paddingHorizontal: 28, borderRadius: 50, gap: 8,
-  },
-  recBtnStart: { backgroundColor: '#6A1B9A' },
-  recBtnStop: { backgroundColor: '#D32F2F' },
-  recBtnIcon: { fontSize: 22 },
-  recBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  processingArea: { alignItems: 'center', padding: 16 },
-  stepText: { color: '#6A1B9A', fontWeight: '600', marginTop: 12, fontSize: 15 },
-  transcriptPreview: {
-    color: '#555', fontSize: 13, marginTop: 10, fontStyle: 'italic',
-    textAlign: 'center', lineHeight: 20,
-  },
-  retryBtn: {
-    marginTop: 12, paddingVertical: 10, paddingHorizontal: 24,
-    borderRadius: 20, borderWidth: 1.5, borderColor: '#6A1B9A',
-  },
-  retryText: { color: '#6A1B9A', fontWeight: '600' },
-  tipsCard: {
-    backgroundColor: '#F3E5F5', borderRadius: 14, padding: 16,
+  timerBadgeActive: { backgroundColor: '#F3E5F5' },
+  timerBadgeText: { fontSize: 13, fontWeight: '700', color: '#9E9E9E' },
+  timerBadgeTextActive: { color: '#6A1B9A' },
+
+  topProgressBg: { height: 3, backgroundColor: '#F0F0F0' },
+  topProgressFill: { height: '100%', backgroundColor: '#CE93D8' },
+
+  promptCard: {
+    marginHorizontal: 20, marginTop: 16, marginBottom: 16,
+    backgroundColor: '#F9F9F9', borderRadius: 16, padding: 16,
     borderLeftWidth: 4, borderLeftColor: '#6A1B9A',
   },
-  tipsTitle: { fontSize: 13, fontWeight: '700', color: '#6A1B9A', marginBottom: 8 },
-  tipItem: { color: '#555', fontSize: 13, marginBottom: 4 },
+  promptLabel: { fontSize: 11, fontWeight: '800', color: '#6A1B9A', letterSpacing: 1, marginBottom: 6 },
+  promptText: { fontSize: 14, color: '#444', lineHeight: 22 },
+
+  recordArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+
+  micContainer: { position: 'relative', width: 160, height: 160, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  micRing: {
+    position: 'absolute', borderRadius: 80, backgroundColor: '#9C27B0',
+  },
+  micRing1: { width: 130, height: 130 },
+  micRing2: { width: 150, height: 150 },
+  micRing3: { width: 170, height: 170 },
+  micBtn: {
+    width: 100, height: 100, borderRadius: 50, backgroundColor: '#6A1B9A',
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#6A1B9A', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4, shadowRadius: 16, elevation: 8,
+  },
+
+  waveContainer: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 20, height: 50 },
+  wavebar: { width: 4, borderRadius: 2, backgroundColor: '#9C27B0' },
+
+  playbackRow: { marginBottom: 10 },
+  playbackBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+
+  recordHint: { fontSize: 14, color: '#757575', fontWeight: '500' },
+
+  progressFooter: {
+    marginHorizontal: 20, marginBottom: 10,
+    backgroundColor: '#F3E5F5', borderRadius: 14, padding: 14,
+  },
+  progressInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  progressLabel: { fontSize: 13, color: '#6A1B9A', fontWeight: '600' },
+  progressTime: { fontSize: 13, color: '#6A1B9A', fontWeight: '700' },
+  progressBarBg: { height: 8, backgroundColor: '#E1BEE7', borderRadius: 4, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#6A1B9A', borderRadius: 4 },
+
+  footer: {
+    paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 20, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: '#F0F2F5', backgroundColor: '#fff',
+  },
+  actionBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 16, paddingVertical: 15,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  actionBtnStart: {
+    backgroundColor: '#6A1B9A', shadowColor: '#6A1B9A',
+  },
+  actionBtnStop: {
+    backgroundColor: '#D32F2F', shadowColor: '#D32F2F',
+  },
+  actionBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

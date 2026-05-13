@@ -22,12 +22,17 @@ import ListeningResultScreen from '../screens/Listening/ListeningResultScreen';
 
 // Reading
 import ReadingListScreen from '../screens/Reading/ReadingListScreen';
+import ReadingDetailScreen from '../screens/Reading/ReadingDetailScreen';
+import ReadingResultScreen from '../screens/Reading/ReadingResultScreen';
 
 // Writing
+import WritingListScreen from '../screens/Writing/WritingListScreen';
 import WritingScreen from '../screens/Writing/WritingScreen';
 import WritingResultScreen from '../screens/Writing/WritingResultScreen';
 
 // Speaking
+import SpeakingListScreen from '../screens/Speaking/SpeakingListScreen';
+import SpeakingPrepScreen from '../screens/Speaking/SpeakingPrepScreen';
 import SpeakingScreen from '../screens/Speaking/SpeakingScreen';
 import SpeakingResultScreen from '../screens/Speaking/SpeakingResultScreen';
 
@@ -36,6 +41,7 @@ import HistoryScreen from '../screens/History/HistoryScreen';
 
 // Profile
 import ProfileScreen from '../screens/Profile/ProfileScreen';
+import ProfileSettingsScreen from '../screens/Profile/ProfileSettingsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -65,6 +71,8 @@ function ReadingStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ReadingList" component={ReadingListScreen} />
+      <Stack.Screen name="ReadingDetail" component={ReadingDetailScreen} />
+      <Stack.Screen name="ReadingResult" component={ReadingResultScreen} />
     </Stack.Navigator>
   );
 }
@@ -73,6 +81,7 @@ function ReadingStack() {
 function WritingStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="WritingList" component={WritingListScreen} />
       <Stack.Screen name="WritingCompose" component={WritingScreen} />
       <Stack.Screen name="WritingResult" component={WritingResultScreen} />
     </Stack.Navigator>
@@ -83,13 +92,27 @@ function WritingStack() {
 function SpeakingStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Speaking" component={SpeakingScreen} />
+      <Stack.Screen name="SpeakingList" component={SpeakingListScreen} />
+      <Stack.Screen name="SpeakingPrep" component={SpeakingPrepScreen} />
+      <Stack.Screen name="SpeakingRecord" component={SpeakingScreen} />
       <Stack.Screen name="SpeakingResult" component={SpeakingResultScreen} />
+      {/* Legacy route for backward compat */}
+      <Stack.Screen name="Speaking" component={SpeakingListScreen} />
     </Stack.Navigator>
   );
 }
 
-// ── Tab Icon component ────────────────────────────────────
+// ── Profile Stack ────────────────────────────────────────
+function ProfileStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ProfileMain" component={ProfileScreen} />
+      <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
+    </Stack.Navigator>
+  );
+}
+
+
 function TabIcon({ iconName, label, focused, color }) {
   return (
     <View style={{ alignItems: 'center', paddingTop: 2 }}>
@@ -171,7 +194,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileStack}
         options={{
           tabBarIcon: ({ focused, color }) => (
             <TabIcon iconName="person" label="Hồ sơ" focused={focused} color={focused ? '#37474F' : '#aaa'} />
@@ -203,13 +226,6 @@ export default function AppNavigator() {
   React.useEffect(() => {
     const checkOnboarding = async () => {
       try {
-        // Temporary force Onboarding for testing UI
-        // const value = await AsyncStorage.getItem('hasCompletedOnboarding');
-        // if (value !== 'true') {
-        //   setInitialRoute('Onboarding');
-        // } else {
-        //   setInitialRoute('Auth');
-        // }
         setInitialRoute('Onboarding');
       } catch (e) {
         setInitialRoute('Onboarding');

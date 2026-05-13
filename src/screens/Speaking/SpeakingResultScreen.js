@@ -1,153 +1,288 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  SafeAreaView, StatusBar, Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-const BAND_COLOR = (b) => {
-  if (b >= 4.5) return '#2196F3';
-  if (b >= 3.5) return '#4CAF50';
-  if (b >= 2.5) return '#FFC107';
-  return '#EF5350';
-};
-
-function BandBar({ label, value }) {
+function ScoreSegments({ value, max = 5 }) {
+  const segments = 10;
+  const filled = Math.round((value / max) * segments);
   return (
-    <View style={styles.barRow}>
-      <Text style={styles.barLabel}>{label}</Text>
-      <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${(value / 5) * 100}%`, backgroundColor: BAND_COLOR(value) }]} />
-      </View>
-      <Text style={[styles.barValue, { color: BAND_COLOR(value) }]}>{value}</Text>
+    <View style={styles.segRow}>
+      {Array.from({ length: segments }).map((_, i) => (
+        <View key={i} style={[styles.seg, i < filled ? styles.segFilled : styles.segEmpty]} />
+      ))}
     </View>
   );
 }
 
-const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function CriteriaCard({ label, value }) {
+  return (
+    <View style={styles.criteriaCard}>
+      <Text style={styles.criteriaLabel}>{label}</Text>
+      <Text style={styles.criteriaValue}>{value?.toFixed(1) ?? '—'}</Text>
+      <ScoreSegments value={value || 0} />
+    </View>
+  );
+}
+
+function BandPrediction({ band }) {
+  if (!band) return null;
+  const levelMap = {
+    5: 'C1 High-Range', 4.5: 'C1 Low-Range', 4: 'B2 High-Range',
+    3.5: 'B2 Mid-Range', 3: 'B2 Low-Range', 2.5: 'B1 High-Range', 2: 'B1 Low-Range',
+  };
+  const label = levelMap[band] || (band >= 4.5 ? 'C1' : band >= 3.5 ? 'B2' : band >= 2.5 ? 'B1' : 'A2');
+  return (
+    <View style={styles.predictionBadge}>
+      <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
+      <Text style={styles.predictionText}>Dự đoán: {label}</Text>
+    </View>
+  );
+}
 
 export default function SpeakingResultScreen({ route, navigation }) {
-  const { result, transcript, topic, level, duration } = route.params;
+  const { result, transcript, topic, level, duration, test } = route.params;
   const feedback = result?.aiFeedback || result || {};
   const { band, fluency, lexical, grammar, pronunciation, strengths, improvements, suggestions } = feedback;
 
+  const [showFeedback, setShowFeedback] = useState(false);
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Nói lại</Text>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => navigation.navigate('SpeakingList')}
+        >
+          <Ionicons name="close" size={20} color="#1A1A2E" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kết quả Speaking</Text>
-        <View style={{ width: 60 }} />
+        <Text style={styles.headerTitle}>Kết quả</Text>
+        <TouchableOpacity style={styles.shareBtn}>
+          <Ionicons name="share-outline" size={22} color="#1A1A2E" />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Band Score */}
-        <View style={styles.scoreCard}>
-          <View style={[styles.bandCircle, { borderColor: BAND_COLOR(band) }]}>
-            <Text style={[styles.bandNum, { color: BAND_COLOR(band) }]}>{band}</Text>
-            <Text style={styles.bandLabel}>BAND</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Band Score Circle */}
+        <View style={styles.scoreSection}>
+          <View style={styles.bandCircleOuter}>
+            <View style={styles.bandCircle}>
+              <Text style={styles.bandNum}>{band?.toFixed(1) ?? '—'}</Text>
+              <Text style={styles.bandLabel}>BAND SCORE</Text>
+            </View>
+            <View style={styles.starBadge}>
+              <Ionicons name="star" size={16} color="#F59E0B" />
+            </View>
           </View>
-          <View style={styles.scoreInfo}>
-            <Text style={styles.levelText}>{level} • {formatTime(duration || 0)}</Text>
-            <Text style={styles.topicPreview} numberOfLines={2}>{topic}</Text>
-          </View>
-        </View>
-
-        {/* Criteria */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>📊 Điểm theo tiêu chí</Text>
-          <BandBar label="Fluency" value={fluency} />
-          <BandBar label="Lexical" value={lexical} />
-          <BandBar label="Grammar" value={grammar} />
-          <BandBar label="Pronunciation" value={pronunciation} />
+          <BandPrediction band={band} />
         </View>
 
         {/* Transcript */}
-        {transcript && (
-          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: '#6A1B9A' }]}>
-            <Text style={styles.cardTitle}>📝 Nội dung bài nói (AI chuyển ngữ)</Text>
+        {transcript ? (
+          <View style={styles.transcriptCard}>
+            <View style={styles.transcriptHeader}>
+              <Text style={styles.transcriptIcon}>📝</Text>
+              <Text style={styles.transcriptTitle}>Transcript</Text>
+            </View>
             <Text style={styles.transcriptText}>{transcript}</Text>
           </View>
-        )}
+        ) : null}
 
-        {/* Strengths */}
-        {strengths?.length > 0 && (
-          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: '#4CAF50' }]}>
-            <Text style={styles.cardTitle}>✅ Điểm mạnh</Text>
-            {strengths.map((s, i) => <Text key={i} style={styles.listItem}>• {s}</Text>)}
+        {/* Criteria grid */}
+        <View style={styles.criteriaGrid}>
+          <CriteriaCard label="PRONUNCIATION" value={pronunciation} />
+          <CriteriaCard label="FLUENCY" value={fluency} />
+          <CriteriaCard label="CONTENT" value={grammar} />
+          <CriteriaCard label="GRAMMAR" value={lexical} />
+        </View>
+
+        {/* AI Feedback toggle */}
+        <TouchableOpacity
+          style={styles.aiFeedbackToggle}
+          onPress={() => setShowFeedback(!showFeedback)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.aiFeedbackLeft}>
+            <Text style={styles.aiFeedbackIcon}>🤖</Text>
+            <Text style={styles.aiFeedbackTitle}>AI Feedback</Text>
+          </View>
+          <Ionicons
+            name={showFeedback ? 'chevron-up' : 'chevron-down'}
+            size={20} color="#6A1B9A"
+          />
+        </TouchableOpacity>
+
+        {showFeedback && (
+          <View style={styles.feedbackContainer}>
+            {strengths?.length > 0 && (
+              <View style={styles.feedbackSection}>
+                <View style={styles.feedbackSectionHeader}>
+                  <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
+                  <Text style={[styles.feedbackSectionTitle, { color: '#2E7D32' }]}>Ưu điểm</Text>
+                </View>
+                {strengths.map((s, i) => (
+                  <Text key={i} style={styles.feedbackItem}>• {s}</Text>
+                ))}
+              </View>
+            )}
+            {improvements?.length > 0 && (
+              <View style={styles.feedbackSection}>
+                <View style={styles.feedbackSectionHeader}>
+                  <Ionicons name="alert-circle" size={16} color="#E65100" />
+                  <Text style={[styles.feedbackSectionTitle, { color: '#E65100' }]}>Cần cải thiện</Text>
+                </View>
+                {improvements.map((s, i) => (
+                  <Text key={i} style={styles.feedbackItem}>• {s}</Text>
+                ))}
+              </View>
+            )}
+            {suggestions?.length > 0 && (
+              <View style={styles.feedbackSection}>
+                <View style={styles.feedbackSectionHeader}>
+                  <Ionicons name="bulb" size={16} color="#1565C0" />
+                  <Text style={[styles.feedbackSectionTitle, { color: '#1565C0' }]}>Gợi ý học tập</Text>
+                </View>
+                {suggestions.map((s, i) => (
+                  <Text key={i} style={styles.feedbackItem}>• {s}</Text>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
-        {/* Improvements */}
-        {improvements?.length > 0 && (
-          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: '#FF9800' }]}>
-            <Text style={styles.cardTitle}>⚠️ Cần cải thiện</Text>
-            {improvements.map((s, i) => <Text key={i} style={styles.listItem}>• {s}</Text>)}
-          </View>
-        )}
+        {/* Main action */}
+        <TouchableOpacity
+          style={styles.newBtn}
+          onPress={() => navigation.navigate('SpeakingList')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.newBtnText}>Làm bài mới</Text>
+        </TouchableOpacity>
 
-        {/* Suggestions */}
-        {suggestions?.length > 0 && (
-          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: '#2196F3' }]}>
-            <Text style={styles.cardTitle}>💡 Gợi ý học tập</Text>
-            {suggestions.map((s, i) => <Text key={i} style={styles.listItem}>• {s}</Text>)}
-          </View>
-        )}
-
-        {/* Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.retryText}>🎙 Nói lại</Text>
+        {/* Secondary actions */}
+        <View style={styles.secondaryActions}>
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => navigation.navigate('SpeakingPrep', { test: test || {} })}
+          >
+            <Ionicons name="volume-medium-outline" size={18} color="#6A1B9A" />
+            <Text style={styles.secondaryBtnText}>Nghe lại</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('Speaking')}>
-            <Text style={styles.homeText}>📚 Chủ đề mới</Text>
+          <TouchableOpacity style={styles.secondaryBtn}>
+            <Ionicons name="bookmark-outline" size={18} color="#6A1B9A" />
+            <Text style={styles.secondaryBtnText}>Lưu</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
+  safeArea: { flex: 1, backgroundColor: '#F5F7FA' },
+
   header: {
-    backgroundColor: '#6A1B9A', paddingTop: 52, paddingBottom: 16,
-    paddingHorizontal: 16, flexDirection: 'row', alignItems: 'flex-end',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    paddingTop: Platform.OS === 'android' ? 20 : 14,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F2F5',
   },
-  backBtn: { width: 60 },
-  backText: { color: '#CE93D8', fontSize: 14 },
-  headerTitle: { flex: 1, textAlign: 'center', color: '#fff', fontSize: 18, fontWeight: '700' },
-  scoreCard: {
-    margin: 16, backgroundColor: '#fff', borderRadius: 20, padding: 24,
-    flexDirection: 'row', alignItems: 'center', gap: 20, elevation: 4,
-  },
-  bandCircle: {
-    width: 90, height: 90, borderRadius: 45, borderWidth: 4,
+  closeBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F5F5',
     justifyContent: 'center', alignItems: 'center',
   },
-  bandNum: { fontSize: 36, fontWeight: '900' },
-  bandLabel: { fontSize: 10, color: '#888', fontWeight: '700', letterSpacing: 2 },
-  scoreInfo: { flex: 1 },
-  levelText: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
-  topicPreview: { color: '#777', fontSize: 12, marginTop: 4, lineHeight: 18 },
-  card: {
-    marginHorizontal: 16, marginBottom: 12, backgroundColor: '#fff',
-    borderRadius: 16, padding: 16, elevation: 2,
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  shareBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+
+  scroll: { paddingBottom: 40 },
+
+  scoreSection: {
+    alignItems: 'center', paddingVertical: 32, backgroundColor: '#fff',
+    marginBottom: 16,
   },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },
-  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
-  barLabel: { width: 110, fontSize: 12, color: '#666' },
-  barTrack: { flex: 1, height: 8, backgroundColor: '#F0F0F0', borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 4 },
-  barValue: { width: 28, textAlign: 'right', fontWeight: '700', fontSize: 14 },
-  transcriptText: { color: '#444', fontSize: 13, lineHeight: 22, fontStyle: 'italic' },
-  listItem: { color: '#555', fontSize: 14, marginBottom: 6, lineHeight: 20 },
-  actions: { flexDirection: 'row', margin: 16, gap: 12 },
-  retryBtn: {
-    flex: 1, backgroundColor: '#F3E5F5', borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center',
+  bandCircleOuter: { position: 'relative', marginBottom: 16 },
+  bandCircle: {
+    width: 140, height: 140, borderRadius: 70,
+    borderWidth: 5, borderColor: '#6A1B9A', backgroundColor: '#F3E5F5',
+    justifyContent: 'center', alignItems: 'center',
   },
-  retryText: { color: '#6A1B9A', fontWeight: '700', fontSize: 15 },
-  homeBtn: {
-    flex: 1, backgroundColor: '#6A1B9A', borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center',
+  bandNum: { fontSize: 42, fontWeight: '900', color: '#6A1B9A' },
+  bandLabel: { fontSize: 11, color: '#9575CD', fontWeight: '700', letterSpacing: 1 },
+  starBadge: {
+    position: 'absolute', top: -4, right: -4,
+    width: 30, height: 30, borderRadius: 15, backgroundColor: '#FFF3E0',
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
-  homeText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  predictionBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#E8F5E9', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+  },
+  predictionText: { fontSize: 14, fontWeight: '700', color: '#2E7D32' },
+
+  transcriptCard: {
+    marginHorizontal: 16, marginBottom: 16, backgroundColor: '#fff',
+    borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04,
+    shadowRadius: 6, elevation: 2, borderWidth: 1, borderColor: '#F0F2F5',
+  },
+  transcriptHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  transcriptIcon: { fontSize: 16 },
+  transcriptTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  transcriptText: { fontSize: 14, color: '#555', lineHeight: 22, fontStyle: 'italic' },
+
+  criteriaGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 16, gap: 10, marginBottom: 14,
+  },
+  criteriaCard: {
+    width: '47%', backgroundColor: '#fff', borderRadius: 16, padding: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04,
+    shadowRadius: 6, elevation: 2, borderWidth: 1, borderColor: '#F0F2F5',
+  },
+  criteriaLabel: { fontSize: 10, fontWeight: '800', color: '#9E9E9E', letterSpacing: 0.8, marginBottom: 4 },
+  criteriaValue: { fontSize: 26, fontWeight: '900', color: '#1A1A2E', marginBottom: 8 },
+  segRow: { flexDirection: 'row', gap: 3 },
+  seg: { flex: 1, height: 4, borderRadius: 2 },
+  segFilled: { backgroundColor: '#6A1B9A' },
+  segEmpty: { backgroundColor: '#E0E0E0' },
+
+  aiFeedbackToggle: {
+    marginHorizontal: 16, marginBottom: 2, backgroundColor: '#F3E5F5',
+    borderRadius: 16, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  aiFeedbackLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  aiFeedbackIcon: { fontSize: 18 },
+  aiFeedbackTitle: { fontSize: 15, fontWeight: '700', color: '#6A1B9A' },
+
+  feedbackContainer: {
+    marginHorizontal: 16, marginBottom: 14, backgroundColor: '#fff',
+    borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04,
+    shadowRadius: 6, elevation: 2, borderWidth: 1, borderColor: '#F0F2F5',
+  },
+  feedbackSection: { marginBottom: 14 },
+  feedbackSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  feedbackSectionTitle: { fontSize: 14, fontWeight: '700' },
+  feedbackItem: { fontSize: 14, color: '#555', lineHeight: 22, marginBottom: 4 },
+
+  newBtn: {
+    marginHorizontal: 16, marginTop: 14, backgroundColor: '#6A1B9A', borderRadius: 16,
+    paddingVertical: 15, alignItems: 'center',
+    shadowColor: '#6A1B9A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3,
+    shadowRadius: 8, elevation: 4,
+  },
+  newBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  secondaryActions: { flexDirection: 'row', marginHorizontal: 16, gap: 10, marginTop: 10 },
+  secondaryBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: '#CE93D8', borderRadius: 16, paddingVertical: 13, backgroundColor: '#fff',
+  },
+  secondaryBtnText: { fontSize: 14, fontWeight: '700', color: '#6A1B9A' },
 });

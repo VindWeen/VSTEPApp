@@ -1,38 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator,
+  StyleSheet, ActivityIndicator, SafeAreaView, StatusBar, Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getListeningAnswers, submitResult } from '../../services/api';
-
-const BAND_LABELS = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1' };
 
 export default function ListeningResultScreen({ route, navigation }) {
   const { testId, answers, detail } = route.params;
   const [correctAnswers, setCorrectAnswers] = useState({});
   const [loading, setLoading] = useState(true);
-  const [submitted, setSubmitted] = useState(false);
-  const [score, setScore] = useState({ correct: 0, total: 0, band: 0 });
+  const [score, setScore] = useState({ correct: 0, wrong: 0, total: 0 });
+  const [showExplanation, setShowExplanation] = useState(false);
 
-  useEffect(() => {
-    fetchAndScore();
-  }, []);
+  useEffect(() => { fetchAndScore(); }, []);
 
   const fetchAndScore = async () => {
     try {
       const res = await getListeningAnswers(testId);
-      // Backend trả về flat array: [{ questionNumber, correctAnswer, explanation }]
       const answersList = res.data.data;
-
       const answerMap = {};
-      answersList.forEach((item) => {
+      answersList.forEach(item => {
         answerMap[item.questionNumber] = {
           correct: item.correctAnswer,
           explanation: item.explanation,
         };
       });
 
-      // Đếm đúng/sai từ answers user đã chọn
       let correct = 0;
       let total = 0;
       Object.entries(answerMap).forEach(([num, item]) => {
@@ -41,20 +35,15 @@ export default function ListeningResultScreen({ route, navigation }) {
       });
 
       setCorrectAnswers(answerMap);
-      const band = calculateBand(correct, total);
-      setScore({ correct, total, band });
+      setScore({ correct, wrong: total - correct, total });
 
-      // Submit result - đúng field names theo backend controller
       await submitResult({
-        testId,                    // backend dùng testId
-        skill: 'listening',
+        testId, skill: 'listening',
         answers: Object.entries(answers).map(([num, ans]) => ({
-          questionNumber: Number(num),
-          userAnswer: ans,         // backend dùng userAnswer
+          questionNumber: Number(num), userAnswer: ans,
         })),
         duration: 0,
       });
-      setSubmitted(true);
     } catch (e) {
       console.error('Lỗi fetch answers:', e.message);
     } finally {
@@ -62,156 +51,285 @@ export default function ListeningResultScreen({ route, navigation }) {
     }
   };
 
-  const calculateBand = (correct, total) => {
-    const pct = correct / total;
-    if (pct >= 0.85) return 5;
-    if (pct >= 0.70) return 4;
-    if (pct >= 0.55) return 3;
-    if (pct >= 0.35) return 2;
-    return 1;
-  };
-
-  const getBandColor = (band) => {
-    const colors = { 1: '#EF5350', 2: '#FF9800', 3: '#FFC107', 4: '#66BB6A', 5: '#2196F3' };
-    return colors[band] || '#888';
-  };
-
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2196F3" />
+        <ActivityIndicator size="large" color="#1565C0" />
         <Text style={styles.loadingText}>Đang chấm điểm...</Text>
       </View>
     );
   }
 
-  // Gộp tất cả câu hỏi kèm options từ detail (đã load sẵn khi làm bài)
-  const allQuestions = detail.parts.flatMap((p) => p.questions);
+  const allQuestions = detail.parts.flatMap(p => p.questions);
+  const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
+  const getLabel = () => {
+    if (pct >= 90) return { text: 'Xuất sắc!', stars: 3 };
+    if (pct >= 70) return { text: 'Tốt!', stars: 2 };
+    if (pct >= 50) return { text: 'Khá!', stars: 1 };
+    return { text: 'Cần cố gắng!', stars: 0 };
+  };
+  const { text: pctLabel, stars } = getLabel();
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Score Card */}
-      <View style={styles.scoreCard}>
-        <Text style={styles.congratsText}>🎯 Kết quả bài thi</Text>
-        <View style={[styles.bandCircle, { borderColor: getBandColor(score.band) }]}>
-          <Text style={[styles.bandNumber, { color: getBandColor(score.band) }]}>
-            {score.band}
-          </Text>
-          <Text style={styles.bandLabel}>BAND</Text>
-        </View>
-        <Text style={styles.levelText}>
-          Tương đương: {BAND_LABELS[score.band] || '—'}
-        </Text>
-        <View style={styles.scoreRow}>
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreNum}>{score.correct}</Text>
-            <Text style={styles.scoreBoxLabel}>Đúng</Text>
-          </View>
-          <View style={styles.scoreDivider} />
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreNum}>{score.total - score.correct}</Text>
-            <Text style={styles.scoreBoxLabel}>Sai</Text>
-          </View>
-          <View style={styles.scoreDivider} />
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreNum}>{score.total}</Text>
-            <Text style={styles.scoreBoxLabel}>Tổng</Text>
-          </View>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Kết quả</Text>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => navigation.navigate('ListeningList')}
+        >
+          <Ionicons name="close" size={18} color="#1A1A2E" />
+        </TouchableOpacity>
       </View>
 
-      {/* Detailed Review */}
-      <Text style={styles.reviewTitle}>📋 Xem đáp án chi tiết</Text>
-      {allQuestions.map((q) => {
-        const userAns = answers[q.questionNumber];
-        const correctAns = correctAnswers[q.questionNumber]?.correct;
-        const isCorrect = userAns === correctAns;
-        return (
-          <View key={q.questionNumber} style={[styles.qCard, isCorrect ? styles.qCorrect : styles.qWrong]}>
-            <View style={styles.qCardHeader}>
-              <Text style={styles.qNum}>Câu {q.questionNumber}</Text>
-              <Text style={isCorrect ? styles.correctIcon : styles.wrongIcon}>
-                {isCorrect ? '✅ Đúng' : '❌ Sai'}
-              </Text>
-            </View>
-            <Text style={styles.qText}>{q.questionText}</Text>
-            {!isCorrect && userAns && (
-              <Text style={styles.userAnsText}>Bạn chọn: {userAns}. {q.options?.[userAns]}</Text>
-            )}
-            <Text style={styles.correctAnsText}>
-              Đáp án: {correctAns}. {q.options?.[correctAns]}
-            </Text>
-            {correctAnswers[q.questionNumber]?.explanation && (
-              <Text style={styles.explanText}>
-                💡 {correctAnswers[q.questionNumber].explanation}
-              </Text>
-            )}
-          </View>
-        );
-      })}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={() => navigation.navigate('ListeningDetail', { test: detail })}
-        >
-          <Text style={styles.retryBtnText}>🔁 Làm lại</Text>
-        </TouchableOpacity>
+        {/* Score card */}
+        <View style={styles.scoreCard}>
+          {/* Circle */}
+          <View style={styles.circleOuter}>
+            <View style={styles.circleInner}>
+              <Text style={styles.circleScore}>{score.correct}/{score.total}</Text>
+              <Text style={styles.circleLabel}>Điểm số</Text>
+            </View>
+            <View style={styles.starBadge}>
+              <Ionicons name="star" size={16} color="#F59E0B" />
+            </View>
+          </View>
+
+          {/* Percentage */}
+          <Text style={styles.pctRow}>
+            <Text style={styles.pctNum}>{pct}%</Text>
+            {'  '}
+            <Text style={styles.pctLabel}>{pctLabel}</Text>
+          </Text>
+
+          {/* Stars */}
+          <View style={styles.starsRow}>
+            {[0, 1, 2].map(i => (
+              <Ionicons key={i} name="star" size={22} color={i < stars ? '#F59E0B' : '#E0E0E0'} />
+            ))}
+          </View>
+        </View>
+
+        {/* Stat cards row */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, styles.statCardGreen]}>
+            <View style={styles.statIconBg}>
+              <Ionicons name="checkmark-circle" size={22} color="#2E7D32" />
+            </View>
+            <Text style={styles.statNum}>{score.correct}</Text>
+            <Text style={styles.statLabel}>Câu đúng</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardRed]}>
+            <View style={[styles.statIconBg, styles.statIconBgRed]}>
+              <Ionicons name="close-circle" size={22} color="#D32F2F" />
+            </View>
+            <Text style={[styles.statNum, styles.statNumRed]}>{score.wrong}</Text>
+            <Text style={styles.statLabel}>Câu sai</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardGray]}>
+            <View style={[styles.statIconBg, styles.statIconBgGray]}>
+              <Ionicons name="time-outline" size={22} color="#455A64" />
+            </View>
+            <Text style={[styles.statNum, styles.statNumGray]}>30:00</Text>
+            <Text style={styles.statLabel}>Thời gian</Text>
+          </View>
+        </View>
+
+        {/* Answer detail */}
+        <Text style={styles.detailTitle}>Chi tiết đáp án</Text>
+
+        {allQuestions.map(q => {
+          const userAns = answers[q.questionNumber];
+          const correctAns = correctAnswers[q.questionNumber]?.correct;
+          const isCorrect = userAns === correctAns;
+
+          return (
+            <View
+              key={q.questionNumber}
+              style={[styles.answerRow, isCorrect ? styles.answerRowCorrect : styles.answerRowWrong]}
+            >
+              <View style={[styles.answerStatusIcon, isCorrect ? styles.answerStatusIconCorrect : styles.answerStatusIconWrong]}>
+                <Ionicons name={isCorrect ? 'checkmark' : 'close'} size={14} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={styles.answerRowLabel}>Câu {q.questionNumber}</Text>
+                  <Text style={[styles.answerText, isCorrect ? styles.answerTextCorrect : styles.answerTextWrong]}>
+                    Đáp án: {correctAns}  {isCorrect ? '✓' : '✗'}
+                  </Text>
+                </View>
+                {!isCorrect && (
+                  <Text style={styles.userAnsText}>Bạn chọn: {userAns || 'Không làm'}</Text>
+                )}
+                {showExplanation && (
+                  <View style={styles.fullExplanationContainer}>
+                    {q.questionText && (
+                      <Text style={styles.fullQuestionText}>{q.questionText}</Text>
+                    )}
+                    {q.options && correctAns && (
+                      <View style={styles.fullAnswerRow}>
+                        <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
+                        <Text style={styles.fullAnswerText}>{correctAns}. {q.options[correctAns]}</Text>
+                      </View>
+                    )}
+                    {correctAnswers[q.questionNumber]?.explanation && (
+                      <View style={styles.explanationBox}>
+                        <Ionicons name="bulb-outline" size={16} color="#F57C00" style={{ marginTop: 2 }} />
+                        <Text style={styles.explanationText}>
+                          {correctAnswers[q.questionNumber].explanation}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Action buttons */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.actionBtnOutline}
+            onPress={() => setShowExplanation(!showExplanation)}
+          >
+            <Ionicons name={showExplanation ? "bulb" : "bulb-outline"} size={18} color="#1565C0" />
+            <Text style={styles.actionBtnOutlineText}>
+              {showExplanation ? "Ẩn giải thích" : "Xem giải thích"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionBtnOutline}
+            onPress={() => navigation.navigate('ListeningDetail', { test: { _id: testId, ...detail } })}
+          >
+            <Ionicons name="refresh-outline" size={18} color="#1A1A2E" />
+            <Text style={[styles.actionBtnOutlineText, { color: '#1A1A2E' }]}>Làm lại</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={styles.homeBtn}
           onPress={() => navigation.navigate('ListeningList')}
+          activeOpacity={0.85}
         >
-          <Text style={styles.homeBtnText}>📚 Đề khác</Text>
+          <Ionicons name="home" size={18} color="#fff" />
+          <Text style={styles.homeBtnText}>Về trang chủ</Text>
         </TouchableOpacity>
-      </View>
-      <View style={{ height: 40 }} />
-    </ScrollView>
+
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
-  loadingText: { marginTop: 12, color: '#666', fontSize: 15 },
+  safeArea: { flex: 1, backgroundColor: '#F5F7FA' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
+  loadingText: { marginTop: 16, color: '#757575', fontSize: 16, fontWeight: '500' },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 16, paddingVertical: 14,
+    paddingTop: Platform.OS === 'android' ? 20 : 14,
+    backgroundColor: '#F5F7FA',
+  },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: '#1A1A2E' },
+  closeBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0F0F0',
+    justifyContent: 'center', alignItems: 'center',
+  },
+
+  scroll: { paddingBottom: 40 },
+
+  // Score card
   scoreCard: {
-    backgroundColor: '#fff', margin: 16, borderRadius: 20, padding: 24,
-    alignItems: 'center', elevation: 4,
+    marginHorizontal: 16, marginBottom: 16, backgroundColor: '#DBEAFE',
+    borderRadius: 24, paddingVertical: 28, paddingHorizontal: 20, alignItems: 'center',
   },
-  congratsText: { fontSize: 18, fontWeight: '700', color: '#1A1A2E', marginBottom: 16 },
-  bandCircle: {
-    width: 100, height: 100, borderRadius: 50, borderWidth: 4,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+  circleOuter: { position: 'relative', marginBottom: 14 },
+  circleInner: {
+    width: 120, height: 120, borderRadius: 60,
+    borderWidth: 5, borderColor: '#1565C0', backgroundColor: '#fff',
+    justifyContent: 'center', alignItems: 'center',
   },
-  bandNumber: { fontSize: 40, fontWeight: '900' },
-  bandLabel: { fontSize: 11, color: '#888', fontWeight: '700', letterSpacing: 2 },
-  levelText: { color: '#555', fontSize: 14, marginBottom: 16 },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
-  scoreBox: { flex: 1, alignItems: 'center' },
-  scoreNum: { fontSize: 28, fontWeight: '800', color: '#1A1A2E' },
-  scoreBoxLabel: { fontSize: 12, color: '#888', marginTop: 2 },
-  scoreDivider: { width: 1, height: 40, backgroundColor: '#EEE' },
-  reviewTitle: { marginHorizontal: 16, marginBottom: 10, fontSize: 16, fontWeight: '700', color: '#333' },
-  qCard: { marginHorizontal: 16, borderRadius: 14, padding: 14, marginBottom: 10, borderLeftWidth: 4 },
-  qCorrect: { backgroundColor: '#F1F8E9', borderLeftColor: '#66BB6A' },
-  qWrong: { backgroundColor: '#FFF8F8', borderLeftColor: '#EF5350' },
-  qCardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  qNum: { fontSize: 12, fontWeight: '700', color: '#888' },
-  correctIcon: { color: '#43A047', fontWeight: '700', fontSize: 12 },
-  wrongIcon: { color: '#E53935', fontWeight: '700', fontSize: 12 },
-  qText: { fontSize: 14, color: '#333', fontWeight: '600', marginBottom: 8, lineHeight: 20 },
-  userAnsText: { color: '#E53935', fontSize: 13, marginBottom: 4 },
-  correctAnsText: { color: '#2E7D32', fontSize: 13, fontWeight: '600' },
-  explanText: { color: '#555', fontSize: 12, marginTop: 6, fontStyle: 'italic' },
-  actions: { flexDirection: 'row', margin: 16, gap: 12 },
-  retryBtn: {
-    flex: 1, backgroundColor: '#E3F2FD', borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center',
+  circleScore: { fontSize: 28, fontWeight: '900', color: '#1A1A2E' },
+  circleLabel: { fontSize: 11, color: '#757575', fontWeight: '600', letterSpacing: 0.5 },
+  starBadge: {
+    position: 'absolute', top: -4, right: -4,
+    width: 30, height: 30, borderRadius: 15, backgroundColor: '#FFF3E0',
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
-  retryBtnText: { color: '#2196F3', fontWeight: '700', fontSize: 15 },
+  pctRow: { fontSize: 16, marginBottom: 10 },
+  pctNum: { fontSize: 36, fontWeight: '900', color: '#1565C0' },
+  pctLabel: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  starsRow: { flexDirection: 'row', gap: 6 },
+
+  // Stat cards
+  statsRow: { flexDirection: 'row', marginHorizontal: 16, gap: 10, marginBottom: 20 },
+  statCard: {
+    flex: 1, borderRadius: 16, padding: 14, alignItems: 'center', gap: 4,
+  },
+  statCardGreen: { backgroundColor: '#E8F5E9' },
+  statCardRed: { backgroundColor: '#FFEBEE' },
+  statCardGray: { backgroundColor: '#ECEFF1' },
+  statIconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#C8E6C9', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  statIconBgRed: { backgroundColor: '#FFCDD2' },
+  statIconBgGray: { backgroundColor: '#CFD8DC' },
+  statNum: { fontSize: 20, fontWeight: '800', color: '#2E7D32' },
+  statNumRed: { color: '#D32F2F' },
+  statNumGray: { color: '#455A64' },
+  statLabel: { fontSize: 12, color: '#757575', fontWeight: '500' },
+
+  // Detail
+  detailTitle: {
+    marginHorizontal: 16, marginBottom: 12, fontSize: 16, fontWeight: '800', color: '#1A1A2E',
+  },
+
+  answerRow: {
+    marginHorizontal: 16, marginBottom: 8, borderRadius: 14, padding: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  answerRowCorrect: { backgroundColor: '#E8F5E9' },
+  answerRowWrong: { backgroundColor: '#FFEBEE' },
+  answerStatusIcon: {
+    width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  answerStatusIconCorrect: { backgroundColor: '#4CAF50' },
+  answerStatusIconWrong: { backgroundColor: '#F44336' },
+  answerRowLabel: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  answerText: { fontSize: 13, fontWeight: '700' },
+  answerTextCorrect: { color: '#2E7D32' },
+  answerTextWrong: { color: '#D32F2F' },
+  userAnsText: { fontSize: 13, color: '#D32F2F', marginTop: 4, fontWeight: '500' },
+  
+  fullExplanationContainer: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 10 },
+  fullQuestionText: { fontSize: 14, color: '#1A1A2E', fontWeight: '600', marginBottom: 6, lineHeight: 20 },
+  fullAnswerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 8 },
+  fullAnswerText: { flex: 1, fontSize: 14, color: '#2E7D32', fontWeight: '500', lineHeight: 20 },
+
+  explanationBox: {
+    padding: 10, backgroundColor: '#FFF3E0', borderRadius: 10,
+    flexDirection: 'row', gap: 6, alignItems: 'flex-start',
+  },
+  explanationText: { flex: 1, fontSize: 13, color: '#E65100', lineHeight: 20 },
+
+  actionsRow: { flexDirection: 'row', marginHorizontal: 16, gap: 10, marginTop: 20, marginBottom: 10 },
+  actionBtnOutline: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: '#DDD', borderRadius: 16, paddingVertical: 13, backgroundColor: '#fff',
+  },
+  actionBtnOutlineText: { fontSize: 14, fontWeight: '700', color: '#1565C0' },
+
   homeBtn: {
-    flex: 1, backgroundColor: '#2196F3', borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center',
+    marginHorizontal: 16, backgroundColor: '#1565C0', borderRadius: 16,
+    paddingVertical: 15, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
+    shadowColor: '#1565C0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25,
+    shadowRadius: 8, elevation: 4,
   },
-  homeBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  homeBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

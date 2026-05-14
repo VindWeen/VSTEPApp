@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // 📱 Test trên Expo Go: đổi thành IP LAN của máy tính (chạy ipconfig để xem)
 // 💻 Test trên web browser: đổi lại thành 'http://localhost:5000/api'
 // const BASE_URL = 'http://192.168.1.100:5000/api';
-const BASE_URL = 'http://172.20.10.4:5000/api';
+const BASE_URL = 'http://192.168.1.11:5000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -39,6 +39,16 @@ export const getListeningDetail = (id) =>
 export const getListeningAnswers = (id) =>
   api.get(`/questions/${id}/answers`);
 
+// Reading
+export const getReadingTests = (params) =>
+  api.get('/questions/reading', { params });
+
+export const getReadingDetail = (id) =>
+  api.get(`/questions/reading/${id}`);
+
+export const getReadingAnswers = (id) =>
+  api.get(`/questions/${id}/answers`);
+
 // Results
 export const submitResult = (payload) => api.post('/results', payload);
 export const getMyResults = (params) => api.get('/results', { params });
@@ -46,6 +56,7 @@ export const getMyResults = (params) => api.get('/results', { params });
 // Writing
 export const scoreWriting = (payload) => api.post('/writing/score', payload);
 export const getWritingHistory = (params) => api.get('/writing', { params });
+export const getWritingTests = (params) => api.get('/writing/tests', { params });
 
 // Speaking
 export const uploadSpeaking = (formData) =>
@@ -56,5 +67,6 @@ export const transcribeSpeaking = (speakingId) =>
   api.post('/speaking/transcribe', { speakingId });
 export const scoreSpeaking = (speakingId) =>
   api.post('/speaking/score', { speakingId });
+export const getSpeakingTests = (params) => api.get('/speaking/tests', { params });
 
 export default api;

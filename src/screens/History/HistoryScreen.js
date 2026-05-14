@@ -3,14 +3,15 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { getMyResults } from '../../services/api';
+import { getMyResults, getWritingHistory, getSpeakingHistory } from '../../services/api';
 
 const SKILL_TABS = [
-  { key: 'all', label: 'Tất cả', color: '#546E7A' },
-  { key: 'listening', label: '🎧 Nghe', color: '#1565C0' },
-  { key: 'writing', label: '✍️ Viết', color: '#00695C' },
-  { key: 'speaking', label: '🎙 Nói', color: '#6A1B9A' },
+  { key: 'all', label: 'Tất cả', icon: 'grid', color: '#546E7A' },
+  { key: 'listening', label: 'Nghe', icon: 'headset', color: '#1565C0' },
+  { key: 'writing', label: 'Viết', icon: 'create', color: '#00695C' },
+  { key: 'speaking', label: 'Nói', icon: 'mic', color: '#6A1B9A' },
 ];
 
 const SKILL_COLORS = {
@@ -40,8 +41,15 @@ export default function HistoryScreen() {
 
   const fetchResults = async (skill) => {
     try {
-      const params = skill !== 'all' ? { skill } : {};
-      const res = await getMyResults(params);
+      let res;
+      if (skill === 'writing') {
+        res = await getWritingHistory({});
+      } else if (skill === 'speaking') {
+        res = await getSpeakingHistory({});
+      } else {
+        const params = skill !== 'all' ? { skill } : {};
+        res = await getMyResults(params);
+      }
       setResults(res.data.data);
     } catch (e) {
       console.error('Lỗi load history:', e.message);
@@ -96,7 +104,10 @@ export default function HistoryScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📊 Lịch sử luyện tập</Text>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+          <Ionicons name="bar-chart" size={26} color="#fff" />
+          <Text style={styles.headerTitle}>Lịch sử luyện tập</Text>
+        </View>
         <Text style={styles.headerSub}>Theo dõi tiến trình của bạn</Text>
       </View>
 
@@ -108,9 +119,16 @@ export default function HistoryScreen() {
             style={[styles.tab, activeTab === tab.key && { ...styles.tabActive, borderBottomColor: tab.color }]}
             onPress={() => handleTabChange(tab.key)}
           >
-            <Text style={[styles.tabText, activeTab === tab.key && { color: tab.color, fontWeight: '700' }]}>
-              {tab.label}
-            </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+              <Ionicons 
+                name={activeTab === tab.key ? tab.icon : `${tab.icon}-outline`} 
+                size={16} 
+                color={activeTab === tab.key ? tab.color : '#888'} 
+              />
+              <Text style={[styles.tabText, activeTab === tab.key && { color: tab.color, fontWeight: '700' }]}>
+                {tab.label}
+              </Text>
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -133,7 +151,7 @@ export default function HistoryScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyIcon}>📭</Text>
+              <Ionicons name="file-tray-outline" size={48} color="#B0BEC5" style={{marginBottom: 12}} />
               <Text style={styles.emptyText}>Chưa có kết quả nào</Text>
               <Text style={styles.emptyHint}>Hãy thử làm một bài Nghe, Viết hoặc Nói!</Text>
             </View>

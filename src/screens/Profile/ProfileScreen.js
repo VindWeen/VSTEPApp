@@ -83,6 +83,16 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* History Button */}
+        <TouchableOpacity 
+          style={styles.historyBtn}
+          onPress={() => navigation.navigate('History')}
+        >
+          <Ionicons name="time-outline" size={20} color="#fff" />
+          <Text style={styles.historyBtnText}>Xem lịch sử làm bài</Text>
+          <Ionicons name="chevron-forward" size={18} color="#fff" style={{marginLeft: 'auto'}} />
+        </TouchableOpacity>
+
         {/* Skill progress */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiến độ kỹ năng</Text>
@@ -183,6 +193,14 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 40, backgroundColor: '#F0F0F0' },
   statNum: { fontSize: 20, fontWeight: '900', color: '#1A1A2E' },
   statLabel: { fontSize: 11, color: '#757575', textAlign: 'center', fontWeight: '500' },
+
+  // History button
+  historyBtn: {
+    backgroundColor: '#1565C0', borderRadius: 16, padding: 14, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    shadowColor: '#1565C0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3,
+  },
+  historyBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   // Skill progress
   section: {

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // 📱 Test trên Expo Go: đổi thành IP LAN của máy tính (chạy ipconfig để xem)
 // 💻 Test trên web browser: đổi lại thành 'http://localhost:5000/api'
 // const BASE_URL = 'http://192.168.1.100:5000/api';
-const BASE_URL = 'http://192.168.1.11:5000/api';
+const BASE_URL = 'http://192.168.1.10:5000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -68,5 +68,6 @@ export const transcribeSpeaking = (speakingId) =>
 export const scoreSpeaking = (speakingId) =>
   api.post('/speaking/score', { speakingId });
 export const getSpeakingTests = (params) => api.get('/speaking/tests', { params });
+export const getSpeakingHistory = (params) => api.get('/speaking', { params });
 
 export default api;

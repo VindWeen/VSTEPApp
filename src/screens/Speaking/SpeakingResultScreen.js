@@ -86,7 +86,7 @@ export default function SpeakingResultScreen({ route, navigation }) {
         {transcript ? (
           <View style={styles.transcriptCard}>
             <View style={styles.transcriptHeader}>
-              <Text style={styles.transcriptIcon}>📝</Text>
+              <Ionicons name="document-text" size={18} color="#1565C0" />
               <Text style={styles.transcriptTitle}>Transcript</Text>
             </View>
             <Text style={styles.transcriptText}>{transcript}</Text>
@@ -108,7 +108,7 @@ export default function SpeakingResultScreen({ route, navigation }) {
           activeOpacity={0.8}
         >
           <View style={styles.aiFeedbackLeft}>
-            <Text style={styles.aiFeedbackIcon}>🤖</Text>
+            <Ionicons name="sparkles" size={18} color="#6A1B9A" />
             <Text style={styles.aiFeedbackTitle}>AI Feedback</Text>
           </View>
           <Ionicons
@@ -233,7 +233,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6, elevation: 2, borderWidth: 1, borderColor: '#F0F2F5',
   },
   transcriptHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  transcriptIcon: { fontSize: 16 },
   transcriptTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
   transcriptText: { fontSize: 14, color: '#555', lineHeight: 22, fontStyle: 'italic' },
 
@@ -257,7 +256,6 @@ const styles = StyleSheet.create({
     borderRadius: 16, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   aiFeedbackLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  aiFeedbackIcon: { fontSize: 18 },
   aiFeedbackTitle: { fontSize: 15, fontWeight: '700', color: '#6A1B9A' },
 
   feedbackContainer: {

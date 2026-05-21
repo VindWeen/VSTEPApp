@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getReadingDetail } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
+import { updateFullMockProgress } from '../../utils/fullMockTest';
 
 const MOCK_TEST = {
   _id: 'mock1',
@@ -54,6 +55,7 @@ const normalizeReadingTest = (rawTest) => {
 export default function ReadingDetailScreen({ route, navigation }) {
   const initialTest = route.params?.test || MOCK_TEST;
   const resumeState = route.params?.resumeState || null;
+  const fullMockMode = route.params?.fullMockMode || false;
   const [test, setTest] = useState(normalizeReadingTest(initialTest));
   const [loading, setLoading] = useState(!initialTest?.passages?.length && !initialTest?.parts?.length);
   const [answers, setAnswers] = useState(resumeState?.answers || {});
@@ -134,6 +136,14 @@ export default function ReadingDetailScreen({ route, navigation }) {
       answers,
       timeLeft,
     }).catch(() => {});
+
+    if (fullMockMode) {
+      updateFullMockProgress('reading', {
+        status: 'in_progress',
+        answers,
+        timeLeft,
+      }).catch(() => {});
+    }
   }, [loading, test?._id, answers, timeLeft]);
 
   const formatTime = (s) => {
@@ -149,6 +159,23 @@ export default function ReadingDetailScreen({ route, navigation }) {
   const doSubmit = () => {
     clearInterval(timerRef.current);
     clearPracticeState('reading', testStorageKey).catch(() => {});
+
+    if (fullMockMode) {
+      updateFullMockProgress('reading', {
+        status: 'completed',
+        answers,
+        timeLeft,
+        timeTaken: totalTime - timeLeft,
+        completedAt: new Date().toISOString(),
+      }).finally(() => {
+        navigation.replace('MockTestHub', {
+          sessionId: route.params?.fullMockSessionId,
+          justCompleted: 'reading',
+        });
+      });
+      return;
+    }
+
     navigation.replace('ReadingResult', {
       testId: test._id,
       answers,

@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getReadingAnswers, submitResult } from '../../services/api';
+import { getReadingAnswers, getReadingDetail, submitResult } from '../../services/api';
 
 function ScoreCircle({ correct, total }) {
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
@@ -87,10 +87,12 @@ const formatTime = (seconds = 0) => {
 };
 
 export default function ReadingResultScreen({ route, navigation }) {
-  const { testId, answers, test, passages = [], timeTaken, historyResult, fromHistory } = route.params;
+  const { testId, answers, test, passages = [], timeTaken, historyResult, fromHistory, fromFullMock } = route.params;
   const [correctMap, setCorrectMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [resolvedTest, setResolvedTest] = useState(test || null);
+  const [resolvedPassages, setResolvedPassages] = useState(passages || []);
 
   const selectedAnswers = useMemo(() => {
     if (!fromHistory) return answers || {};
@@ -104,6 +106,13 @@ export default function ReadingResultScreen({ route, navigation }) {
   useEffect(() => {
     const prepareResult = async () => {
       try {
+        if (!passages.length) {
+          const detailRes = await getReadingDetail(testId);
+          const data = detailRes.data.data;
+          setResolvedTest(data);
+          setResolvedPassages(data.parts || data.passages || []);
+        }
+
         const res = await getReadingAnswers(testId);
         const map = {};
         (res.data.data || []).forEach((item) => {
@@ -114,7 +123,7 @@ export default function ReadingResultScreen({ route, navigation }) {
         });
         setCorrectMap(map);
 
-        if (!fromHistory) {
+        if (!fromHistory && !fromFullMock) {
           await submitResult({
             testId,
             skill: 'reading',
@@ -133,9 +142,14 @@ export default function ReadingResultScreen({ route, navigation }) {
     };
 
     prepareResult();
-  }, [fromHistory, selectedAnswers, testId, timeTaken]);
+  }, [fromHistory, fromFullMock, passages.length, selectedAnswers, testId, timeTaken]);
 
   const navigateAfterReview = () => {
+    if (fromFullMock) {
+      navigation.goBack();
+      return;
+    }
+
     if (fromHistory) {
       navigation.getParent()?.navigate('Profile', { screen: 'History' });
       return;
@@ -144,7 +158,7 @@ export default function ReadingResultScreen({ route, navigation }) {
     navigation.navigate('ReadingList');
   };
 
-  const allQuestions = passages.flatMap((part) => part.questions || []);
+  const allQuestions = resolvedPassages.flatMap((part) => part.questions || []);
   const total = allQuestions.length;
   const correct = allQuestions.reduce((sum, q) => {
     const expected = correctMap[q.questionNumber]?.correct;
@@ -152,7 +166,7 @@ export default function ReadingResultScreen({ route, navigation }) {
   }, 0);
   const wrong = total - correct;
 
-  const passageBreakdowns = passages.map((part, idx) => {
+  const passageBreakdowns = resolvedPassages.map((part, idx) => {
     const partCorrect = (part.questions || []).reduce((sum, q) => {
       const expected = correctMap[q.questionNumber]?.correct;
       return sum + (selectedAnswers[q.questionNumber] === expected ? 1 : 0);
@@ -240,10 +254,10 @@ export default function ReadingResultScreen({ route, navigation }) {
               {showExplanation ? 'Ẩn giải thích' : 'Xem giải thích'}
             </Text>
           </TouchableOpacity>
-          {!fromHistory ? (
+          {!fromHistory && !fromFullMock ? (
             <TouchableOpacity
               style={styles.actionBtnOutline}
-              onPress={() => navigation.navigate('ReadingDetail', { test })}
+              onPress={() => navigation.navigate('ReadingDetail', { test: resolvedTest })}
             >
               <Ionicons name="refresh-outline" size={18} color="#1A1A2E" />
               <Text style={[styles.actionBtnOutlineText, { color: '#1A1A2E' }]}>Làm lại</Text>
@@ -254,7 +268,7 @@ export default function ReadingResultScreen({ route, navigation }) {
         {showExplanation ? (
           <View style={styles.explanationSection}>
             <Text style={styles.explanationSectionTitle}>Chi tiết đáp án</Text>
-            {passages.map((part, partIndex) => (
+            {resolvedPassages.map((part, partIndex) => (
               <View key={partIndex} style={styles.passageExplanationCard}>
                 <View style={styles.passageExplanationHeader}>
                   <Text style={styles.passageExplanationTag}>{part.partTitle || `Phần ${partIndex + 1}`}</Text>

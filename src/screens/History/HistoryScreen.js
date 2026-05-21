@@ -21,9 +21,11 @@ import {
   getListeningDetail,
   getReadingDetail,
 } from '../../services/api';
+import { loadFullMockHistory } from '../../utils/fullMockTest';
 
 const SKILL_TABS = [
   { key: 'all', label: 'Tất cả', icon: 'apps', color: '#455A64' },
+  { key: 'mocktest', label: 'Thi thử', icon: 'ribbon', color: '#0F4C81' },
   { key: 'listening', label: 'Nghe', icon: 'headset', color: '#1565C0' },
   { key: 'reading', label: 'Đọc', icon: 'book', color: '#2E7D32' },
   { key: 'writing', label: 'Viết', icon: 'create', color: '#E65100' },
@@ -31,6 +33,7 @@ const SKILL_TABS = [
 ];
 
 const SKILL_META = {
+  mocktest: { label: 'Thi thử', icon: 'ribbon', color: '#0F4C81', light: '#E3F2FD' },
   listening: { label: 'Nghe', icon: 'headset', color: '#1565C0', light: '#E3F2FD' },
   reading: { label: 'Đọc', icon: 'book', color: '#2E7D32', light: '#E8F5E9' },
   writing: { label: 'Viết', icon: 'create', color: '#E65100', light: '#FFF3E0' },
@@ -40,9 +43,9 @@ const SKILL_META = {
 const BAND_COLOR = (band) => {
   const numericBand = typeof band === 'number' ? band : null;
   if (numericBand !== null) {
-    if (numericBand >= 4.5) return '#1565C0';
-    if (numericBand >= 3.5) return '#2E7D32';
-    if (numericBand >= 2.5) return '#EF6C00';
+    if (numericBand >= 6.5) return '#1565C0';
+    if (numericBand >= 5.0) return '#2E7D32';
+    if (numericBand >= 4.0) return '#EF6C00';
     return '#D32F2F';
   }
 
@@ -102,6 +105,17 @@ const normalizeSpeakingItem = (item) => ({
   dateValue: item.completedAt || item.createdAt,
 });
 
+const normalizeMockTestItem = (item) => ({
+  ...item,
+  _id: item.id,
+  skill: 'mocktest',
+  historyType: 'mocktest',
+  title: 'Mock Test 4 kỹ năng',
+  testTitle: 'Mock Test 4 kỹ năng',
+  bandScore: item.overallBand,
+  dateValue: item.completedAt || item.createdAt,
+});
+
 export default function HistoryScreen({ navigation }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,19 +128,27 @@ export default function HistoryScreen({ navigation }) {
   const fetchResults = async (skill) => {
     try {
       if (skill === 'all') {
-        const [objectiveRes, writingRes, speakingRes] = await Promise.all([
+        const [objectiveRes, writingRes, speakingRes, mockHistory] = await Promise.all([
           getMyResults({ limit: 100 }),
           getWritingHistory({ limit: 100 }),
           getSpeakingHistory({ limit: 100 }),
+          loadFullMockHistory(),
         ]);
 
         const merged = [
+          ...(mockHistory || []).map(normalizeMockTestItem),
           ...(objectiveRes.data.data || []).map(normalizeObjectiveItem),
           ...(writingRes.data.data || []).map(normalizeWritingItem),
           ...(speakingRes.data.data || []).map(normalizeSpeakingItem),
         ].sort((a, b) => new Date(b.dateValue || 0) - new Date(a.dateValue || 0));
 
         setResults(merged);
+        return;
+      }
+
+      if (skill === 'mocktest') {
+        const mockHistory = await loadFullMockHistory();
+        setResults((mockHistory || []).map(normalizeMockTestItem));
         return;
       }
 
@@ -167,9 +189,19 @@ export default function HistoryScreen({ navigation }) {
   };
 
   const openHistoryItem = async (item) => {
-    setOpeningId(item._id);
+    setOpeningId(item._id || item.id);
 
     try {
+      if (item.historyType === 'mocktest') {
+        parentNavigation?.navigate('Home', {
+          screen: 'MockTestResult',
+          params: {
+            result: item,
+          },
+        });
+        return;
+      }
+
       if (item.historyType === 'writing') {
         const res = await getWritingSessionById(item._id);
         parentNavigation?.navigate('Writing', {
@@ -236,16 +268,22 @@ export default function HistoryScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const meta = SKILL_META[item.skill] || SKILL_META.listening;
     const scoreLabel =
-      item.skill === 'listening' || item.skill === 'reading'
-        ? `${item.score}/${item.total} đúng`
-        : `${item.totalWordCount || item.totalAudioDuration ? (item.totalWordCount ? `${item.totalWordCount} từ` : formatDuration(item.totalAudioDuration)) : item.level}`;
+      item.skill === 'mocktest'
+        ? `Overall ${Number(item.overallBand || 0).toFixed(1)}/9.0`
+        : item.skill === 'listening' || item.skill === 'reading'
+          ? `${item.score}/${item.total} đúng`
+          : `${item.totalWordCount || item.totalAudioDuration ? (item.totalWordCount ? `${item.totalWordCount} từ` : formatDuration(item.totalAudioDuration)) : item.level}`;
 
     const secondLine =
-      item.skill === 'speaking'
-        ? formatDuration(item.totalAudioDuration) || item.level
-        : item.skill === 'writing'
-          ? `${item.level} • ${item.totalWordCount || 0} từ`
-          : `${item.level} • ${item.percentage ?? 0}%`;
+      item.skill === 'mocktest'
+        ? '4 kỹ năng • Nghe, Đọc, Viết, Nói'
+        : item.skill === 'speaking'
+          ? formatDuration(item.totalAudioDuration) || item.level
+          : item.skill === 'writing'
+            ? `${item.level} • ${item.totalWordCount || 0} từ`
+            : `${item.level} • ${item.percentage ?? 0}%`;
+
+    const itemId = item._id || item.id;
 
     return (
       <TouchableOpacity
@@ -286,7 +324,7 @@ export default function HistoryScreen({ navigation }) {
         <View style={styles.cardFooter}>
           <Text style={styles.scoreText}>{scoreLabel}</Text>
           <View style={styles.reviewBtn}>
-            {openingId === item._id ? (
+            {openingId === itemId ? (
               <ActivityIndicator size="small" color={meta.color} />
             ) : (
               <>
@@ -309,7 +347,7 @@ export default function HistoryScreen({ navigation }) {
         <View style={styles.heroTextWrap}>
           <Text style={styles.headerTitle}>Lịch sử làm bài</Text>
           <Text style={styles.headerSub}>
-            Dữ liệu đang lấy từ kết quả thật của 4 kỹ năng, không dùng mock.
+            Có thể lọc riêng các lần thi thử 4 kỹ năng hoặc từng kỹ năng lẻ.
           </Text>
         </View>
       </View>
@@ -344,7 +382,7 @@ export default function HistoryScreen({ navigation }) {
       ) : (
         <FlatList
           data={results}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => item._id || item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={

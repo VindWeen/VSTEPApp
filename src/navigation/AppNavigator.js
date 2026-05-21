@@ -13,6 +13,10 @@ import OnboardingScreen from '../screens/Auth/OnboardingScreen';
 
 // Home
 import HomeScreen from '../screens/Home/HomeScreen';
+import MockTestIntroScreen from '../screens/MockTest/MockTestIntroScreen';
+import MockTestHubScreen from '../screens/MockTest/MockTestHubScreen';
+import MockTestResultScreen from '../screens/MockTest/MockTestResultScreen';
+import MockTestHistoryScreen from '../screens/MockTest/MockTestHistoryScreen';
 
 // Listening
 import ListeningListScreen from '../screens/Listening/ListeningListScreen';
@@ -51,6 +55,19 @@ function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} />
+      <Stack.Screen name="MockTestIntro" component={MockTestIntroScreen} />
+      <Stack.Screen name="MockTestHub" component={MockTestHubScreen} />
+      <Stack.Screen name="MockTestResult" component={MockTestResultScreen} />
+      <Stack.Screen name="MockTestHistory" component={MockTestHistoryScreen} />
+      <Stack.Screen name="FullMockListeningDetail" component={ListeningDetailScreen} />
+      <Stack.Screen name="FullMockListeningResult" component={ListeningResultScreen} />
+      <Stack.Screen name="FullMockReadingDetail" component={ReadingDetailScreen} />
+      <Stack.Screen name="FullMockReadingResult" component={ReadingResultScreen} />
+      <Stack.Screen name="FullMockWritingCompose" component={WritingScreen} />
+      <Stack.Screen name="FullMockWritingResult" component={WritingResultScreen} />
+      <Stack.Screen name="FullMockSpeakingPrep" component={SpeakingPrepScreen} />
+      <Stack.Screen name="FullMockSpeakingRecord" component={SpeakingScreen} />
+      <Stack.Screen name="FullMockSpeakingResult" component={SpeakingResultScreen} />
     </Stack.Navigator>
   );
 }

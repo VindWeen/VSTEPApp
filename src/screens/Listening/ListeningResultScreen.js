@@ -11,14 +11,15 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getListeningAnswers, submitResult } from '../../services/api';
+import { getListeningAnswers, getListeningDetail, submitResult } from '../../services/api';
 
 export default function ListeningResultScreen({ route, navigation }) {
-  const { testId, answers, detail, historyResult, fromHistory } = route.params;
+  const { testId, answers, detail, historyResult, fromHistory, fromFullMock } = route.params;
   const [correctAnswers, setCorrectAnswers] = useState({});
   const [loading, setLoading] = useState(true);
   const [score, setScore] = useState({ correct: 0, wrong: 0, total: 0 });
   const [showExplanation, setShowExplanation] = useState(false);
+  const [detailData, setDetailData] = useState(detail || null);
 
   const selectedAnswers = useMemo(() => {
     if (!fromHistory) return answers || {};
@@ -30,6 +31,11 @@ export default function ListeningResultScreen({ route, navigation }) {
   }, [answers, fromHistory, historyResult]);
 
   const navigateAfterReview = () => {
+    if (fromFullMock) {
+      navigation.goBack();
+      return;
+    }
+
     if (fromHistory) {
       navigation.getParent()?.navigate('Profile', { screen: 'History' });
       return;
@@ -41,6 +47,11 @@ export default function ListeningResultScreen({ route, navigation }) {
   useEffect(() => {
     const fetchAndScore = async () => {
       try {
+        if (!detail?.parts?.length) {
+          const detailRes = await getListeningDetail(testId);
+          setDetailData(detailRes.data.data);
+        }
+
         const res = await getListeningAnswers(testId);
         const answersList = res.data.data || [];
         const answerMap = {};
@@ -62,7 +73,7 @@ export default function ListeningResultScreen({ route, navigation }) {
         setCorrectAnswers(answerMap);
         setScore({ correct, wrong: total - correct, total });
 
-        if (!fromHistory) {
+        if (!fromHistory && !fromFullMock) {
           await submitResult({
             testId,
             skill: 'listening',
@@ -81,7 +92,7 @@ export default function ListeningResultScreen({ route, navigation }) {
     };
 
     fetchAndScore();
-  }, [fromHistory, selectedAnswers, testId]);
+  }, [fromHistory, fromFullMock, selectedAnswers, testId]);
 
   if (loading) {
     return (
@@ -92,7 +103,7 @@ export default function ListeningResultScreen({ route, navigation }) {
     );
   }
 
-  const allQuestions = (detail?.parts || []).flatMap((part) => part.questions || []);
+  const allQuestions = (detailData?.parts || []).flatMap((part) => part.questions || []);
   const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
 
   const getLabel = () => {
@@ -248,10 +259,10 @@ export default function ListeningResultScreen({ route, navigation }) {
               {showExplanation ? 'Ẩn giải thích' : 'Xem giải thích'}
             </Text>
           </TouchableOpacity>
-          {!fromHistory ? (
+          {!fromHistory && !fromFullMock ? (
             <TouchableOpacity
               style={styles.actionBtnOutline}
-              onPress={() => navigation.navigate('ListeningDetail', { test: { _id: testId, ...detail } })}
+              onPress={() => navigation.navigate('ListeningDetail', { test: { _id: testId, ...detailData } })}
             >
               <Ionicons name="refresh-outline" size={18} color="#1A1A2E" />
               <Text style={[styles.actionBtnOutlineText, { color: '#1A1A2E' }]}>Làm lại</Text>

@@ -93,7 +93,7 @@ function TaskCriteriaRow({ label, value }) {
 }
 
 export default function WritingResultScreen({ route, navigation }) {
-  const { result, test, draftResponses = [], fromHistory } = route.params;
+  const { result, test, draftResponses = [], fromHistory, fromFullMock } = route.params;
   const [expandedTaskKey, setExpandedTaskKey] = useState(null);
 
   const feedback = result?.aiFeedback || result || {};
@@ -123,6 +123,11 @@ export default function WritingResultScreen({ route, navigation }) {
   };
 
   const navigateAfterReview = () => {
+    if (fromFullMock) {
+      navigation.goBack();
+      return;
+    }
+
     if (fromHistory) {
       navigation.getParent()?.navigate('Profile', { screen: 'History' });
       return;

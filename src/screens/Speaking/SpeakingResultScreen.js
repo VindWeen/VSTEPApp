@@ -92,7 +92,7 @@ function PartCriteriaRow({ label, value }) {
 }
 
 export default function SpeakingResultScreen({ route, navigation }) {
-  const { result, test, fromHistory } = route.params;
+  const { result, test, fromHistory, fromFullMock } = route.params;
   const [expandedPartKey, setExpandedPartKey] = useState(null);
   const [playingPartKey, setPlayingPartKey] = useState(null);
   const soundRef = useRef(null);
@@ -118,6 +118,11 @@ export default function SpeakingResultScreen({ route, navigation }) {
       soundRef.current = null;
     }
     setPlayingPartKey(null);
+
+    if (fromFullMock) {
+      navigation.goBack();
+      return;
+    }
 
     if (fromHistory) {
       navigation.getParent()?.navigate('Profile', { screen: 'History' });

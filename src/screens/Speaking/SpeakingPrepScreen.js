@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { savePracticeState } from '../../utils/practiceState';
+import { updateFullMockProgress } from '../../utils/fullMockTest';
 
 const PREP_TIME = 28;
 
@@ -25,6 +26,7 @@ export default function SpeakingPrepScreen({ route, navigation }) {
   const test = route.params?.test || { tasks: [MOCK_TASK] };
   const taskIndex = route.params?.taskIndex || 0;
   const resumeState = route.params?.resumeState || null;
+  const fullMockMode = route.params?.fullMockMode || false;
   const draftResponses = route.params?.draftResponses || resumeState?.draftResponses || [];
   const testStorageKey = test._id || test.title;
   const tasks = test.tasks || [test];
@@ -95,11 +97,22 @@ export default function SpeakingPrepScreen({ route, navigation }) {
       draftResponses,
       timeLeft,
     }).catch(() => {});
+
+    if (fullMockMode) {
+      updateFullMockProgress('speaking', {
+        status: 'in_progress',
+        screen: 'prep',
+        taskIndex,
+        draftResponses,
+        timeLeft,
+      }).catch(() => {});
+    }
   }, [taskIndex, draftResponses, timeLeft]);
 
   const handleHeaderLeftPress = () => {
     if (hasPreviousTask) {
-      navigation.replace('SpeakingRecord', {
+      navigation.replace(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
+        ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
         test,
         taskIndex: taskIndex - 1,
         draftResponses,
@@ -160,7 +173,8 @@ export default function SpeakingPrepScreen({ route, navigation }) {
         <TouchableOpacity
           style={styles.startBtn}
           onPress={() =>
-            navigation.navigate('SpeakingRecord', {
+            navigation.navigate(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
+              ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
               test,
               taskIndex,
               draftResponses,

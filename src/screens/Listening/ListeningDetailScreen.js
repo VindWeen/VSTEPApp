@@ -9,6 +9,7 @@ import Slider from '@react-native-community/slider';
 import { useFocusEffect } from '@react-navigation/native';
 import { getListeningDetail } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
+import { updateFullMockProgress } from '../../utils/fullMockTest';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5];
 const SPEED_LABELS = { 0.75: '0.75x', 1: '1x', 1.25: '1.25x', 1.5: '1.5x' };
@@ -16,6 +17,7 @@ const SPEED_LABELS = { 0.75: '0.75x', 1: '1x', 1.25: '1.25x', 1.5: '1.5x' };
 export default function ListeningDetailScreen({ route, navigation }) {
   const { test } = route.params;
   const resumeState = route.params?.resumeState || null;
+  const fullMockMode = route.params?.fullMockMode || false;
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentPart, setCurrentPart] = useState(resumeState?.currentPart || 0);
@@ -89,6 +91,15 @@ export default function ListeningDetailScreen({ route, navigation }) {
       answers,
       timeLeft,
     }).catch(() => {});
+
+    if (fullMockMode) {
+      updateFullMockProgress('listening', {
+        status: 'in_progress',
+        currentPart,
+        answers,
+        timeLeft,
+      }).catch(() => {});
+    }
   }, [loading, detail, currentPart, answers, timeLeft]);
 
   useEffect(() => {
@@ -224,6 +235,24 @@ export default function ListeningDetailScreen({ route, navigation }) {
       return;
     }
     clearPracticeState('listening', testStorageKey).catch(() => {});
+
+    if (fullMockMode) {
+      updateFullMockProgress('listening', {
+        status: 'completed',
+        currentPart,
+        answers,
+        timeLeft,
+        timeTaken: ((detail?.duration || test?.duration || 40) * 60) - timeLeft,
+        completedAt: new Date().toISOString(),
+      }).finally(() => {
+        navigation.replace('MockTestHub', {
+          sessionId: route.params?.fullMockSessionId,
+          justCompleted: 'listening',
+        });
+      });
+      return;
+    }
+
     navigation.navigate('ListeningResult', { testId: test._id, answers, detail });
   };
 

@@ -18,6 +18,7 @@ import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { scoreWritingTest } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
+import { updateFullMockProgress } from '../../utils/fullMockTest';
 
 const MOCK_TEST = {
   _id: 'mock1',
@@ -46,6 +47,7 @@ export default function WritingScreen({ route, navigation }) {
   const taskIndex = route.params?.taskIndex || 0;
   const draftResponses = route.params?.draftResponses || [];
   const resumeState = route.params?.resumeState || null;
+  const fullMockMode = route.params?.fullMockMode || false;
   const tasks = test.tasks || [test];
   const currentTask = tasks[taskIndex] || tasks[0];
   const totalTime = (currentTask.timeLimit || 40) * 60;
@@ -116,18 +118,29 @@ export default function WritingScreen({ route, navigation }) {
   useEffect(() => {
     const persistState = async () => {
       if (loading) return;
+      const nextDraftResponses = buildNextDraftResponses();
+
       await savePracticeState('writing', testStorageKey, {
         testId: testStorageKey,
         title: test.title,
         level: test.level,
         taskIndex,
         timeLeft,
-        draftResponses: buildNextDraftResponses(),
+        draftResponses: nextDraftResponses,
       });
+
+      if (fullMockMode) {
+        await updateFullMockProgress('writing', {
+          status: 'in_progress',
+          taskIndex,
+          timeLeft,
+          draftResponses: nextDraftResponses,
+        });
+      }
     };
 
     persistState().catch(() => {});
-  }, [essay, timeLeft, taskIndex, loading]);
+  }, [essay, timeLeft, taskIndex, loading, fullMockMode]);
 
   const handleGoToPreviousTask = () => {
     if (!hasPreviousTask || loading) return;
@@ -155,10 +168,28 @@ export default function WritingScreen({ route, navigation }) {
 
     if (!isLastTask) {
       clearInterval(timerRef.current);
-      navigation.push('WritingCompose', {
+      navigation.push(fullMockMode ? 'FullMockWritingCompose' : 'WritingCompose', {
         test,
         taskIndex: taskIndex + 1,
         draftResponses: nextDrafts,
+        fullMockMode,
+        fullMockSessionId: route.params?.fullMockSessionId,
+      });
+      return;
+    }
+
+    if (fullMockMode) {
+      await clearPracticeState('writing', testStorageKey);
+      await updateFullMockProgress('writing', {
+        status: 'completed',
+        taskIndex,
+        timeLeft,
+        draftResponses: nextDrafts,
+        completedAt: new Date().toISOString(),
+      });
+      navigation.replace('MockTestHub', {
+        sessionId: route.params?.fullMockSessionId,
+        justCompleted: 'writing',
       });
       return;
     }

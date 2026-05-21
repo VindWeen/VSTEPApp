@@ -16,6 +16,7 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { uploadSpeaking, scoreSpeakingTest } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
+import { updateFullMockProgress } from '../../utils/fullMockTest';
 
 const MOCK_TASK = {
   title: 'Speaking 01 - Part 1',
@@ -53,6 +54,7 @@ export default function SpeakingScreen({ route, navigation }) {
   const test = route.params?.test || { tasks: [MOCK_TASK] };
   const taskIndex = route.params?.taskIndex || 0;
   const resumeState = route.params?.resumeState || null;
+  const fullMockMode = route.params?.fullMockMode || false;
   const tasks = test.tasks || [test];
   const currentTask = tasks[taskIndex] || tasks[0];
   const hasPreviousTask = taskIndex > 0;
@@ -98,7 +100,17 @@ export default function SpeakingScreen({ route, navigation }) {
       draftResponses,
       recordingTime,
     }).catch(() => {});
-  }, [draftResponses, taskIndex, recordingTime]);
+
+    if (fullMockMode) {
+      updateFullMockProgress('speaking', {
+        status: 'in_progress',
+        screen: 'record',
+        taskIndex,
+        draftResponses,
+        recordingTime,
+      }).catch(() => {});
+    }
+  }, [draftResponses, taskIndex, recordingTime, fullMockMode]);
 
   useEffect(
     () => () => {
@@ -282,10 +294,11 @@ export default function SpeakingScreen({ route, navigation }) {
   const handleGoToPreviousTask = async () => {
     if (!hasPreviousTask || processing) return;
     await stopPlayback();
-    navigation.replace('SpeakingRecord', {
+    navigation.replace(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
       test,
       taskIndex: taskIndex - 1,
       draftResponses,
+      ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
     });
   };
 
@@ -305,16 +318,33 @@ export default function SpeakingScreen({ route, navigation }) {
     }
 
     await stopPlayback();
-    navigation.push('SpeakingPrep', {
+    navigation.push(fullMockMode ? 'FullMockSpeakingPrep' : 'SpeakingPrep', {
       test,
       taskIndex: taskIndex + 1,
       draftResponses,
+      ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
     });
   };
 
   const handleSubmitFullTest = async () => {
     if (!allPartsRecorded) {
       Alert.alert('Chưa đủ part', 'Bạn cần ghi âm đủ 3 part trước khi chấm điểm toàn bộ bài.');
+      return;
+    }
+
+    if (fullMockMode) {
+      await clearPracticeState('speaking', testStorageKey);
+      await updateFullMockProgress('speaking', {
+        status: 'completed',
+        screen: 'record',
+        taskIndex,
+        draftResponses,
+        completedAt: new Date().toISOString(),
+      });
+      navigation.replace('MockTestHub', {
+        sessionId: route.params?.fullMockSessionId,
+        justCompleted: 'speaking',
+      });
       return;
     }
 

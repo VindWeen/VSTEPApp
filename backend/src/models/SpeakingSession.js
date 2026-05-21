@@ -1,17 +1,53 @@
 const mongoose = require('mongoose');
 
-// Sub-schema: AI feedback cho Speaking (4 tiêu chí khác với Writing)
 const speakingFeedbackSchema = new mongoose.Schema(
   {
     band: { type: Number, min: 1, max: 5 },
-    fluency: { type: Number, min: 1, max: 5 },       // Fluency & Coherence
-    lexical: { type: Number, min: 1, max: 5 },        // Lexical Resource
-    grammar: { type: Number, min: 1, max: 5 },        // Grammatical Range & Accuracy
-    pronunciation: { type: Number, min: 1, max: 5 },  // Pronunciation
+    fluency: { type: Number, min: 1, max: 5 },
+    lexical: { type: Number, min: 1, max: 5 },
+    grammar: { type: Number, min: 1, max: 5 },
+    pronunciation: { type: Number, min: 1, max: 5 },
     strengths: [String],
     improvements: [String],
     suggestions: [String],
     rawResponse: { type: String },
+  },
+  { _id: false }
+);
+
+const speakingPartResponseSchema = new mongoose.Schema(
+  {
+    title: { type: String },
+    partType: {
+      type: String,
+      enum: ['Part 1', 'Part 2', 'Part 3'],
+      required: true,
+    },
+    prompt: {
+      type: String,
+      required: true,
+    },
+    audioUrl: {
+      type: String,
+      default: null,
+    },
+    cloudinaryPublicId: {
+      type: String,
+      default: null,
+    },
+    audioDuration: {
+      type: Number,
+      default: 0,
+    },
+    transcript: {
+      type: String,
+      default: null,
+    },
+    isMockTranscript: {
+      type: Boolean,
+      default: false,
+    },
+    aiFeedback: speakingFeedbackSchema,
   },
   { _id: false }
 );
@@ -30,36 +66,45 @@ const speakingSessionSchema = new mongoose.Schema(
     },
     partType: {
       type: String,
-      enum: ['Part 1', 'Part 2', 'Part 3'],
+      enum: ['Part 1', 'Part 2', 'Part 3', 'Full Test'],
       default: 'Part 2',
+    },
+    testTitle: {
+      type: String,
+      default: null,
     },
     prompt: {
       type: String,
-      required: true,
+      default: null,
     },
-    // Cloudinary
     audioUrl: {
       type: String,
-      default: null, // URL audio trên Cloudinary
+      default: null,
     },
     cloudinaryPublicId: {
       type: String,
-      default: null, // Để xóa file sau nếu cần
+      default: null,
     },
     audioDuration: {
       type: Number,
-      default: 0, // giây
+      default: 0,
     },
-    // Speech-to-Text
+    totalAudioDuration: {
+      type: Number,
+      default: 0,
+    },
     transcript: {
       type: String,
-      default: null, // Text chuyển từ audio
+      default: null,
     },
     isMockTranscript: {
       type: Boolean,
-      default: false, // Đánh dấu nếu dùng mock STT
+      default: false,
     },
-    // AI Scoring
+    partResponses: {
+      type: [speakingPartResponseSchema],
+      default: [],
+    },
     aiFeedback: speakingFeedbackSchema,
     status: {
       type: String,
@@ -71,7 +116,6 @@ const speakingSessionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index để lấy lịch sử speaking của user
 speakingSessionSchema.index({ userId: 1, completedAt: -1 });
 
 module.exports = mongoose.model('SpeakingSession', speakingSessionSchema);

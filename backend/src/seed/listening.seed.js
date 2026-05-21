@@ -7,7 +7,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const mongoose = require('mongoose');
-const Question = require('../models/Question');
+const ListeningTest = require('../models/ListeningTest');
 
 // URL audio mẫu (dùng LibriVox - public domain English audio)
 const SAMPLE_AUDIO_BASE = 'https://www.soundhelix.com/examples/mp3';
@@ -488,11 +488,11 @@ const seedListening = async () => {
     console.log('✅ Kết nối MongoDB thành công');
 
     // Xóa data listening cũ
-    const deleted = await Question.deleteMany({ skill: 'listening' });
+    const deleted = await ListeningTest.deleteMany({});
     console.log(`🗑️  Đã xóa ${deleted.deletedCount} đề listening cũ`);
 
     // Insert mới
-    const inserted = await Question.insertMany(listeningTests);
+    const inserted = await ListeningTest.insertMany(listeningTests);
     console.log(`✅ Đã seed ${inserted.length} đề Listening:`);
     inserted.forEach((q) => console.log(`   - ${q.title} (${q.level}) [ID: ${q._id}]`));
 

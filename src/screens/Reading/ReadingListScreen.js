@@ -1,22 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity,
-  StyleSheet, ActivityIndicator, RefreshControl,
-  SafeAreaView, StatusBar, Platform, ScrollView,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  SafeAreaView,
+  StatusBar,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getReadingTests } from '../../services/api';
+import { useFocusEffect } from '@react-navigation/native';
+import { getMyResults, getReadingTests } from '../../services/api';
+import { getPracticeStateKey, loadPracticeStates } from '../../utils/practiceState';
 
-const LEVEL_COLORS = { A2: '#FF9800', B1: '#4CAF50', B2: '#2196F3', C1: '#9C27B0' };
 const FILTERS = ['Tất cả', 'A2', 'B1', 'B2', 'C1'];
-
-// Mock data for when backend doesn't have reading tests yet
-const MOCK_TESTS = [
-  { _id: '1', title: 'Đề Đọc Số 1 - B1', level: 'B1', totalQuestions: 30, duration: 60, status: 'done', score: 27 },
-  { _id: '2', title: 'Đề Đọc Số 2 - B1', level: 'B1', totalQuestions: 30, duration: 60, status: 'notDone' },
-  { _id: '3', title: 'Đề Đọc Số 3 - B2', level: 'B2', totalQuestions: 35, duration: 75, status: 'notDone' },
-  { _id: '4', title: 'Đề Đọc Số 4 - B2', level: 'B2', totalQuestions: 35, duration: 75, status: 'notDone' },
-];
 
 export default function ReadingListScreen({ navigation }) {
   const [tests, setTests] = useState([]);
@@ -24,74 +25,127 @@ export default function ReadingListScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Tất cả');
 
-  const fetchTests = async () => {
+  const fetchTests = useCallback(async () => {
     try {
-      const res = await getReadingTests();
-      const data = res.data?.data || [];
-      setTests(data.length > 0 ? data : MOCK_TESTS);
-    } catch (e) {
-      // Use mock data if API not available yet
-      setTests(MOCK_TESTS);
+      const [testsRes, historyRes] = await Promise.all([
+        getReadingTests({ limit: 100 }),
+        getMyResults({ skill: 'reading', limit: 100 }),
+      ]);
+      const testItems = testsRes.data?.data || [];
+      const historyItems = historyRes.data?.data || [];
+      const draftMap = await loadPracticeStates('reading', testItems.map((item) => item._id));
+
+      const bestScoreByTitle = historyItems.reduce((acc, item) => {
+        const title = item.testTitle;
+        const score = Number(item.score) || 0;
+        if (!title) return acc;
+        acc[title] = Math.max(acc[title] || 0, score);
+        return acc;
+      }, {});
+
+      setTests(
+        testItems.map((item) => {
+          const draft = draftMap[getPracticeStateKey('reading', item._id)];
+          const bestScore = bestScoreByTitle[item.title] || 0;
+          const status = draft ? 'inProgress' : bestScore > 0 ? 'done' : 'notDone';
+
+          return {
+            ...item,
+            status,
+            draft,
+            bestScore,
+          };
+        })
+      );
+    } catch {
+      setTests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchTests();
+    }, [fetchTests])
+  );
+
+  const filteredTests = useMemo(() => {
+    return tests.filter((test) => {
+      if (activeFilter === 'Tất cả') return true;
+      return test.level === activeFilter;
+    });
+  }, [activeFilter, tests]);
+
+  const openReadingTest = (item) => {
+    if (item.status === 'inProgress' && item.draft) {
+      navigation.navigate('ReadingDetail', { test: item, resumeState: item.draft });
+      return;
+    }
+
+    navigation.navigate('ReadingDetail', { test: item });
   };
 
-  useEffect(() => { fetchTests(); }, []);
-
-  const filteredTests = tests.filter(test => {
-    if (activeFilter === 'Tất cả') return true;
-    return test.level === activeFilter;
-  });
+  const getActionLabel = (item) => {
+    if (item.status === 'inProgress') return 'Tiếp tục làm';
+    if (item.status === 'done') return 'Làm lại';
+    return 'Bắt đầu ngay';
+  };
 
   const renderItem = ({ item }) => {
-    const isDone = item.status === 'done';
-    const isInProgress = item.status === 'inProgress';
+    const progressWidth = item.totalQuestions
+      ? `${Math.min((item.bestScore / item.totalQuestions) * 100, 100)}%`
+      : '0%';
 
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => navigation.navigate('ReadingDetail', { test: item })}
-        activeOpacity={0.8}
+        onPress={() => openReadingTest(item)}
+        activeOpacity={0.85}
       >
-        <View style={styles.cardLeft}>
-          <View style={[styles.cardIcon, isDone && styles.cardIconDone]}>
-            <Ionicons
-              name="document-text"
-              size={22}
-              color={isDone ? '#2E7D32' : isInProgress ? '#1565C0' : '#B0BEC5'}
-            />
+        <View style={styles.cardTop}>
+          <View style={styles.cardLeft}>
+            <View style={styles.cardIcon}>
+              <Ionicons name="document-text" size={22} color="#2E7D32" />
+            </View>
+            <View style={styles.cardInfo}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.cardMeta}>
+                {item.totalQuestions} câu • {item.duration} phút • {item.level}
+              </Text>
+              {item.status === 'inProgress' ? (
+                <Text style={styles.cardDraftText}>Đang làm dở</Text>
+              ) : null}
+              {item.status === 'done' ? (
+                <View style={styles.scoreWrap}>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: progressWidth }]} />
+                  </View>
+                  <Text style={styles.scoreText}>
+                    {item.bestScore}/{item.totalQuestions}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.cardMeta}>
-              {item.totalQuestions} câu • {item.duration} phút
-            </Text>
-            {isDone && item.score != null && (
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${(item.score / item.totalQuestions) * 100}%` }]} />
-              </View>
+
+          <View style={styles.cardRight}>
+            {item.status === 'done' ? (
+              <Text style={styles.doneText}>Đã làm</Text>
+            ) : item.status === 'inProgress' ? (
+              <Text style={styles.inProgressText}>Đang làm</Text>
+            ) : (
+              <Text style={styles.notDoneText}>Chưa làm</Text>
             )}
           </View>
         </View>
 
-        <View style={styles.cardRight}>
-          {isDone ? (
-            <View style={styles.doneColumn}>
-              <View style={styles.doneBadge}>
-                <Text style={styles.doneBadgeText}>Đã làm</Text>
-              </View>
-              <Text style={styles.scoreText}>{item.score}/{item.totalQuestions}</Text>
-            </View>
-          ) : isInProgress ? (
-            <View style={styles.inProgressBadge}>
-              <Text style={styles.inProgressText}>Đang làm</Text>
-            </View>
-          ) : (
-            <Text style={styles.notDoneText}>Chưa làm</Text>
-          )}
-        </View>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => openReadingTest(item)}>
+          <Text style={styles.actionBtnText}>{getActionLabel(item)}</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -100,7 +154,6 @@ export default function ReadingListScreen({ navigation }) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#1A1A2E" />
@@ -111,7 +164,6 @@ export default function ReadingListScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Hero Banner */}
       <View style={styles.heroPad}>
         <View style={styles.heroCard}>
           <View style={styles.heroIconBg}>
@@ -123,31 +175,36 @@ export default function ReadingListScreen({ navigation }) {
             <View style={styles.heroBadgeRow}>
               <View style={styles.heroBadge}>
                 <Ionicons name="document-text-outline" size={12} color="#fff" />
-                <Text style={styles.heroBadgeText}> 80+ Bài</Text>
+                <Text style={styles.heroBadgeText}> {tests.length} đề</Text>
               </View>
               <View style={styles.heroBadge}>
                 <Ionicons name="layers-outline" size={12} color="#fff" />
-                <Text style={styles.heroBadgeText}> 3 Dạng câu</Text>
+                <Text style={styles.heroBadgeText}> Lịch sử làm bài</Text>
               </View>
             </View>
           </View>
         </View>
       </View>
 
-      {/* Filters */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filterScroll}>
-        {FILTERS.map(f => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScrollView}
+        contentContainerStyle={styles.filterScroll}
+      >
+        {FILTERS.map((filter) => (
           <TouchableOpacity
-            key={f}
-            style={[styles.filterBtn, activeFilter === f && styles.filterBtnActive]}
-            onPress={() => setActiveFilter(f)}
+            key={filter}
+            style={[styles.filterBtn, activeFilter === filter && styles.filterBtnActive]}
+            onPress={() => setActiveFilter(filter)}
           >
-            <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>{f}</Text>
+            <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
+              {filter}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Count header */}
       <View style={styles.listHeader}>
         <View style={styles.listHeaderLeft}>
           <Text style={styles.listHeaderTitle}>Đề thi</Text>
@@ -155,9 +212,7 @@ export default function ReadingListScreen({ navigation }) {
             <Text style={styles.countBadgeText}>{filteredTests.length}</Text>
           </View>
         </View>
-        <TouchableOpacity>
-          <Text style={styles.seeAll}>Xem tất cả</Text>
-        </TouchableOpacity>
+        <Text style={styles.seeAll}>Xem tất cả</Text>
       </View>
 
       {loading ? (
@@ -172,7 +227,14 @@ export default function ReadingListScreen({ navigation }) {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchTests(); }} colors={['#2E7D32']} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchTests();
+              }}
+              colors={['#2E7D32']}
+            />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -188,90 +250,144 @@ export default function ReadingListScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F5F7FA' },
-
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: Platform.OS === 'android' ? 10 : 0,
-    paddingBottom: 10, backgroundColor: '#F5F7FA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 10 : 0,
+    paddingBottom: 10,
+    backgroundColor: '#F5F7FA',
   },
   iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
-
   heroPad: { paddingHorizontal: 16, paddingBottom: 12 },
   heroCard: {
-    backgroundColor: '#2E7D32', borderRadius: 20, padding: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: '#2E7D32',
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   heroIconBg: {
-    width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center',
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroTitle: { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 2 },
   heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
   heroBadgeRow: { flexDirection: 'row', gap: 8 },
   heroBadge: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   heroBadgeText: { fontSize: 11, color: '#fff', fontWeight: '600' },
-
-  filterScroll: { paddingHorizontal: 16, paddingBottom: 4, flexDirection: 'row', alignItems: 'center' },
+  filterScrollView: { flexGrow: 0, minHeight: 50, maxHeight: 50 },
+  filterScroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    paddingTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   filterBtn: {
-    paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20,
-    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E0E0E0',
-    marginRight: 8, alignSelf: 'flex-start',
+    minWidth: 72,
+    height: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterBtnActive: { backgroundColor: '#2E7D32', borderColor: '#2E7D32' },
-  filterText: { fontSize: 14, fontWeight: '600', color: '#757575' },
+  filterText: { fontSize: 14, lineHeight: 18, fontWeight: '600', color: '#757575', textAlign: 'center' },
   filterTextActive: { color: '#fff' },
-
   listHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
   },
   listHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   listHeaderTitle: { fontSize: 16, fontWeight: '800', color: '#1A1A2E' },
   countBadge: {
-    backgroundColor: '#2E7D32', borderRadius: 12,
-    paddingHorizontal: 8, paddingVertical: 2,
-    minWidth: 24, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#2E7D32',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countBadgeText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   seeAll: { fontSize: 14, color: '#2E7D32', fontWeight: '600' },
-
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { paddingHorizontal: 16, paddingBottom: 40 },
-
   card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12,
-    flexDirection: 'row', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
-    borderWidth: 1, borderColor: '#F0F2F5',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F0F2F5',
   },
-  cardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start' },
+  cardLeft: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   cardIcon: {
-    width: 46, height: 46, borderRadius: 12, backgroundColor: '#F5F5F5',
-    justifyContent: 'center', alignItems: 'center',
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
   },
-  cardIconDone: { backgroundColor: '#E8F5E9' },
   cardInfo: { flex: 1 },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E', marginBottom: 3 },
-  cardMeta: { fontSize: 13, color: '#757575', marginBottom: 6 },
+  cardMeta: { fontSize: 13, color: '#757575', marginBottom: 4 },
+  cardDraftText: { marginTop: 6, fontSize: 13, color: '#2E7D32', fontWeight: '700' },
+  scoreWrap: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
   progressBarBg: {
-    height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, overflow: 'hidden',
+    flex: 1,
+    height: 8,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 999,
+    overflow: 'hidden',
   },
-  progressBarFill: { height: '100%', backgroundColor: '#2E7D32', borderRadius: 2 },
-
+  progressBarFill: { height: '100%', backgroundColor: '#2E7D32', borderRadius: 999 },
   cardRight: { alignItems: 'flex-end', marginLeft: 8 },
-  doneColumn: { alignItems: 'flex-end', gap: 4 },
-  doneBadge: { backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  doneBadgeText: { fontSize: 12, fontWeight: '700', color: '#2E7D32' },
-  scoreText: { fontSize: 15, fontWeight: '800', color: '#2E7D32' },
-  inProgressBadge: { backgroundColor: '#E3F2FD', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  inProgressText: { fontSize: 12, fontWeight: '700', color: '#1565C0' },
+  doneText: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
+  inProgressText: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
   notDoneText: { fontSize: 13, fontWeight: '500', color: '#9E9E9E' },
-
+  scoreText: { fontSize: 12, fontWeight: '800', color: '#2E7D32' },
+  actionBtn: {
+    marginTop: 12,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#2E7D32',
+  },
+  actionBtnText: { fontSize: 14, fontWeight: '700', color: '#2E7D32' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
   emptyText: { textAlign: 'center', color: '#90A4AE', marginTop: 16, fontSize: 15, fontWeight: '500' },
 });

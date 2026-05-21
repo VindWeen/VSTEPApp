@@ -5,10 +5,12 @@ const morgan = require('morgan');
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
+const listeningRoutes = require('./routes/listening.routes');
 const questionsRoutes = require('./routes/questions.routes');
 const resultsRoutes = require('./routes/results.routes');
 const writingRoutes = require('./routes/writing.routes');
 const speakingRoutes = require('./routes/speaking.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -31,10 +33,12 @@ app.get('/api/health', (req, res) => {
 
 // ── API Routes ──────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/listening-tests', listeningRoutes);
 app.use('/api/questions', questionsRoutes);
 app.use('/api/results', resultsRoutes);
 app.use('/api/writing', writingRoutes);
 app.use('/api/speaking', speakingRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ── 404 Handler ─────────────────────────────────────────
 app.use((req, res) => {

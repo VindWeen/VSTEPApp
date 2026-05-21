@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -10,7 +10,6 @@ import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 import OnboardingScreen from '../screens/Auth/OnboardingScreen';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Home
 import HomeScreen from '../screens/Home/HomeScreen';
@@ -42,6 +41,7 @@ import HistoryScreen from '../screens/History/HistoryScreen';
 // Profile
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import ProfileSettingsScreen from '../screens/Profile/ProfileSettingsScreen';
+import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -109,6 +109,7 @@ function ProfileStack() {
       <Stack.Screen name="ProfileMain" component={ProfileScreen} />
       <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
       <Stack.Screen name="History" component={HistoryScreen} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
     </Stack.Navigator>
   );
 }

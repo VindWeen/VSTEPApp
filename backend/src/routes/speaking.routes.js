@@ -3,7 +3,9 @@ const {
   uploadSpeaking,
   transcribeSpeaking,
   scoreSpeaking,
+  scoreSpeakingTest,
   getMySpeakingSessions,
+  getSpeakingTests,
   getSpeakingSessionById,
 } = require('../controllers/speaking.controller');
 const { protect } = require('../middleware/auth.middleware');
@@ -11,16 +13,12 @@ const { uploadAudio, handleMulterError } = require('../middleware/upload.middlew
 
 const router = express.Router();
 
-// Upload audio file (multipart/form-data)
 router.post('/upload', protect, uploadAudio.single('audio'), handleMulterError, uploadSpeaking);
-
-// Transcribe audio → text
 router.post('/transcribe', protect, transcribeSpeaking);
-
-// AI chấm điểm từ transcript
 router.post('/score', protect, scoreSpeaking);
+router.post('/score-test', protect, scoreSpeakingTest);
 
-// Lịch sử
+router.get('/tests', protect, getSpeakingTests);
 router.get('/', protect, getMySpeakingSessions);
 router.get('/:id', protect, getSpeakingSessionById);
 

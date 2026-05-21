@@ -1,11 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity,
-  StyleSheet, ActivityIndicator, RefreshControl,
-  SafeAreaView, StatusBar, Platform, ScrollView,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  SafeAreaView,
+  StatusBar,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getListeningTests } from '../../services/api';
+import { useFocusEffect } from '@react-navigation/native';
+import { getListeningTests, getMyResults } from '../../services/api';
+import { getPracticeStateKey, loadPracticeStates } from '../../utils/practiceState';
 
 const FILTERS = ['Tất cả', 'A2', 'B1', 'B2', 'C1'];
 
@@ -15,75 +25,128 @@ export default function ListeningListScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Tất cả');
 
-  const fetchTests = async () => {
+  const fetchTests = useCallback(async () => {
     try {
-      const res = await getListeningTests();
-      setTests(res.data.data);
+      const [testsRes, historyRes] = await Promise.all([
+        getListeningTests({ limit: 100 }),
+        getMyResults({ skill: 'listening', limit: 100 }),
+      ]);
+      const testItems = testsRes.data?.data || [];
+      const historyItems = historyRes.data?.data || [];
+      const draftMap = await loadPracticeStates('listening', testItems.map((item) => item._id));
+
+      const bestScoreByTitle = historyItems.reduce((acc, item) => {
+        const title = item.testTitle;
+        const score = Number(item.score) || 0;
+        if (!title) return acc;
+        acc[title] = Math.max(acc[title] || 0, score);
+        return acc;
+      }, {});
+
+      setTests(
+        testItems.map((item) => {
+          const draft = draftMap[getPracticeStateKey('listening', item._id)];
+          const bestScore = bestScoreByTitle[item.title] || 0;
+          const status = draft ? 'inProgress' : bestScore > 0 ? 'done' : 'notDone';
+
+          return {
+            ...item,
+            status,
+            draft,
+            bestScore,
+          };
+        })
+      );
     } catch (e) {
       console.error('Lỗi load đề:', e.message);
+      setTests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchTests();
+    }, [fetchTests])
+  );
+
+  const filteredTests = useMemo(() => {
+    return tests.filter((test) => {
+      if (activeFilter === 'Tất cả') return true;
+      return test.level === activeFilter;
+    });
+  }, [activeFilter, tests]);
+
+  const openListeningTest = (item) => {
+    if (item.status === 'inProgress' && item.draft) {
+      navigation.navigate('ListeningDetail', { test: item, resumeState: item.draft });
+      return;
+    }
+
+    navigation.navigate('ListeningDetail', { test: item });
   };
 
-  useEffect(() => { fetchTests(); }, []);
-
-  const filteredTests = tests.filter(test => {
-    if (activeFilter === 'Tất cả') return true;
-    return test.level === activeFilter;
-  });
+  const getActionLabel = (item) => {
+    if (item.status === 'inProgress') return 'Tiếp tục làm';
+    if (item.status === 'done') return 'Làm lại';
+    return 'Bắt đầu ngay';
+  };
 
   const renderItem = ({ item }) => {
-    const status = item.status || 'Chưa làm';
-    const isDone = status === 'Hoàn thành' || status === 'done';
-    const isInProgress = status === 'Đang làm' || status === 'inProgress';
+    const progressWidth = item.totalQuestions
+      ? `${Math.min((item.bestScore / item.totalQuestions) * 100, 100)}%`
+      : '0%';
 
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => navigation.navigate('ListeningDetail', { test: item })}
-        activeOpacity={0.8}
+        onPress={() => openListeningTest(item)}
+        activeOpacity={0.85}
       >
-        <View style={styles.cardLeft}>
-          <View style={[styles.cardIcon, isDone && styles.cardIconDone, isInProgress && styles.cardIconProgress]}>
-            <Ionicons
-              name="headset"
-              size={20}
-              color={isDone ? '#1565C0' : isInProgress ? '#1565C0' : '#B0BEC5'}
-            />
+        <View style={styles.cardTop}>
+          <View style={styles.cardLeft}>
+            <View style={styles.cardIcon}>
+              <Ionicons name="headset" size={20} color="#1565C0" />
+            </View>
+            <View style={styles.cardInfo}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.cardMeta}>
+                {item.totalQuestions} câu • {item.duration} phút • {item.level}
+              </Text>
+              {item.status === 'inProgress' ? (
+                <Text style={styles.cardDraftText}>Đang làm dở</Text>
+              ) : null}
+              {item.status === 'done' ? (
+                <View style={styles.scoreWrap}>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: progressWidth }]} />
+                  </View>
+                  <Text style={styles.scoreText}>
+                    {item.bestScore}/{item.totalQuestions}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.cardMeta}>
-              {item.totalQuestions} câu • {item.duration} phút
-            </Text>
-            {isDone && item.score != null && (
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${(item.score / item.totalQuestions) * 100}%` }]} />
-              </View>
+
+          <View style={styles.cardRight}>
+            {item.status === 'done' ? (
+              <Text style={styles.doneText}>Đã làm</Text>
+            ) : item.status === 'inProgress' ? (
+              <Text style={styles.inProgressText}>Đang làm</Text>
+            ) : (
+              <Text style={styles.notDoneText}>Chưa làm</Text>
             )}
           </View>
         </View>
 
-        <View style={styles.cardRight}>
-          {isDone ? (
-            <View style={styles.doneColumn}>
-              <View style={styles.doneBadge}>
-                <Text style={styles.doneBadgeText}>Đã làm</Text>
-              </View>
-              <Text style={styles.scoreText}>
-                {item.score ?? '—'}/{item.totalQuestions}
-              </Text>
-            </View>
-          ) : isInProgress ? (
-            <View style={styles.inProgressBadge}>
-              <Text style={styles.inProgressText}>Đang làm</Text>
-            </View>
-          ) : (
-            <Text style={styles.notDoneText}>Chưa làm</Text>
-          )}
-        </View>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => openListeningTest(item)}>
+          <Text style={styles.actionBtnText}>{getActionLabel(item)}</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -92,7 +155,6 @@ export default function ListeningListScreen({ navigation }) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#1A1A2E" />
@@ -103,7 +165,6 @@ export default function ListeningListScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Hero Banner */}
       <View style={styles.heroPad}>
         <View style={styles.heroCard}>
           <View style={styles.heroIconBg}>
@@ -115,36 +176,36 @@ export default function ListeningListScreen({ navigation }) {
             <View style={styles.heroBadgeRow}>
               <View style={styles.heroBadge}>
                 <Ionicons name="headset-outline" size={12} color="#fff" />
-                <Text style={styles.heroBadgeText}> 120+ Bài</Text>
+                <Text style={styles.heroBadgeText}> {tests.length} đề</Text>
               </View>
               <View style={styles.heroBadge}>
                 <Ionicons name="person-outline" size={12} color="#fff" />
-                <Text style={styles.heroBadgeText}> AI Phản hồi</Text>
+                <Text style={styles.heroBadgeText}> Lịch sử làm bài</Text>
               </View>
             </View>
           </View>
         </View>
       </View>
 
-      {/* Filters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
+        style={styles.filterScrollView}
         contentContainerStyle={styles.filterScroll}
       >
-        {FILTERS.map(f => (
+        {FILTERS.map((filter) => (
           <TouchableOpacity
-            key={f}
-            style={[styles.filterBtn, activeFilter === f && styles.filterBtnActive]}
-            onPress={() => setActiveFilter(f)}
+            key={filter}
+            style={[styles.filterBtn, activeFilter === filter && styles.filterBtnActive]}
+            onPress={() => setActiveFilter(filter)}
           >
-            <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>{f}</Text>
+            <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
+              {filter}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Count header */}
       <View style={styles.listHeader}>
         <View style={styles.listHeaderLeft}>
           <Text style={styles.listHeaderTitle}>Đề thi</Text>
@@ -152,9 +213,7 @@ export default function ListeningListScreen({ navigation }) {
             <Text style={styles.countBadgeText}>{filteredTests.length}</Text>
           </View>
         </View>
-        <TouchableOpacity>
-          <Text style={styles.seeAll}>Xem tất cả</Text>
-        </TouchableOpacity>
+        <Text style={styles.seeAll}>Xem tất cả</Text>
       </View>
 
       {loading ? (
@@ -171,7 +230,10 @@ export default function ListeningListScreen({ navigation }) {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); fetchTests(); }}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchTests();
+              }}
               colors={['#1565C0']}
             />
           }
@@ -189,89 +251,144 @@ export default function ListeningListScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F5F7FA' },
-
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: Platform.OS === 'android' ? 10 : 0,
-    paddingBottom: 10, backgroundColor: '#F5F7FA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 10 : 0,
+    paddingBottom: 10,
+    backgroundColor: '#F5F7FA',
   },
   iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
-
   heroPad: { paddingHorizontal: 16, paddingBottom: 12 },
   heroCard: {
-    backgroundColor: '#1565C0', borderRadius: 20, padding: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: '#1565C0',
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   heroIconBg: {
-    width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center',
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroTitle: { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 2 },
   heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
   heroBadgeRow: { flexDirection: 'row', gap: 8 },
   heroBadge: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   heroBadgeText: { fontSize: 11, color: '#fff', fontWeight: '600' },
-
-  filterScroll: { paddingHorizontal: 16, paddingBottom: 4, flexDirection: 'row', alignItems: 'center' },
+  filterScrollView: { flexGrow: 0, minHeight: 50, maxHeight: 50 },
+  filterScroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    paddingTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   filterBtn: {
-    paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20,
-    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E0E0E0',
-    marginRight: 8, alignSelf: 'flex-start',
+    minWidth: 72,
+    height: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterBtnActive: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
-  filterText: { fontSize: 14, fontWeight: '600', color: '#757575' },
+  filterText: { fontSize: 14, lineHeight: 18, fontWeight: '600', color: '#757575', textAlign: 'center' },
   filterTextActive: { color: '#fff' },
-
   listHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
   },
   listHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   listHeaderTitle: { fontSize: 16, fontWeight: '800', color: '#1A1A2E' },
   countBadge: {
-    backgroundColor: '#1565C0', borderRadius: 12,
-    paddingHorizontal: 8, paddingVertical: 2,
-    minWidth: 24, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#1565C0',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countBadgeText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   seeAll: { fontSize: 14, color: '#1565C0', fontWeight: '600' },
-
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { paddingHorizontal: 16, paddingBottom: 40 },
-
   card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12,
-    flexDirection: 'row', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
-    borderWidth: 1, borderColor: '#F0F2F5',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F0F2F5',
   },
-  cardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start' },
+  cardLeft: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   cardIcon: {
-    width: 46, height: 46, borderRadius: 12, backgroundColor: '#F5F5F5',
-    justifyContent: 'center', alignItems: 'center',
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
   },
-  cardIconDone: { backgroundColor: '#E3F2FD' },
-  cardIconProgress: { backgroundColor: '#EDE7F6' },
   cardInfo: { flex: 1 },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E', marginBottom: 3 },
-  cardMeta: { fontSize: 13, color: '#757575', marginBottom: 6 },
-  progressBarBg: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: '#1565C0', borderRadius: 2 },
-
+  cardMeta: { fontSize: 13, color: '#757575', marginBottom: 4 },
+  cardDraftText: { marginTop: 6, fontSize: 13, color: '#1565C0', fontWeight: '700' },
+  scoreWrap: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  progressBarBg: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressBarFill: { height: '100%', backgroundColor: '#1565C0', borderRadius: 999 },
   cardRight: { alignItems: 'flex-end', marginLeft: 8 },
-  doneColumn: { alignItems: 'flex-end', gap: 4 },
-  doneBadge: { backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  doneBadgeText: { fontSize: 12, fontWeight: '700', color: '#2E7D32' },
-  scoreText: { fontSize: 15, fontWeight: '800', color: '#1565C0' },
-  inProgressBadge: { backgroundColor: '#FFF3E0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  inProgressText: { fontSize: 12, fontWeight: '700', color: '#E65100' },
+  doneText: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
+  inProgressText: { fontSize: 13, fontWeight: '700', color: '#1565C0' },
   notDoneText: { fontSize: 13, fontWeight: '500', color: '#9E9E9E' },
-
+  scoreText: { fontSize: 12, fontWeight: '800', color: '#1565C0' },
+  actionBtn: {
+    marginTop: 12,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#1565C0',
+  },
+  actionBtnText: { fontSize: 14, fontWeight: '700', color: '#1565C0' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
   emptyText: { textAlign: 'center', color: '#90A4AE', marginTop: 16, fontSize: 15, fontWeight: '500' },
 });

@@ -8,7 +8,9 @@ const storage = multer.memoryStorage();
 const audioFileFilter = (req, file, cb) => {
   const allowedMimes = [
     'audio/mpeg',       // .mp3
+    'audio/m4a',        // .m4a explicit
     'audio/mp4',        // .m4a
+    'video/mp4',        // Android/Expo sometimes reports mp4 container this way
     'audio/wav',        // .wav
     'audio/x-wav',      // .wav alternative
     'audio/vnd.wave',   // .wav Android variant
@@ -19,6 +21,7 @@ const audioFileFilter = (req, file, cb) => {
     'audio/x-m4a',      // .m4a alternative MIME
     'audio/3gpp',       // .3gp (Android)
     'audio/amr',        // .amr (Android)
+    'application/octet-stream', // some Android devices/providers report generic binary
   ];
 
   if (allowedMimes.includes(file.mimetype)) {

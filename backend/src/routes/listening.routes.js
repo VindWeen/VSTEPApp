@@ -1,18 +1,15 @@
 const express = require('express');
 const {
-  getReadingTests,
-  getReadingTestById,
+  getListeningTests,
+  getListeningTestById,
   getAnswers,
 } = require('../controllers/questions.controller');
 const { protect } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-// Reading
-router.get('/reading', protect, getReadingTests);
-router.get('/reading/:id', protect, getReadingTestById);
-
-// Đáp án (dùng sau khi nộp bài)
+router.get('/', protect, getListeningTests);
+router.get('/:id', protect, getListeningTestById);
 router.get('/:id/answers', protect, getAnswers);
 
 module.exports = router;

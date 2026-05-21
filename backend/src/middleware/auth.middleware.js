@@ -39,4 +39,22 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+const authorize = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Chưa đăng nhập. Vui lòng cung cấp token.',
+    });
+  }
+
+  if (!roles.includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Bạn không có quyền truy cập tài nguyên này.',
+    });
+  }
+
+  next();
+};
+
+module.exports = { protect, authorize };

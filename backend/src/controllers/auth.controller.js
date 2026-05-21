@@ -20,7 +20,12 @@ const register = async (req, res, next) => {
     }
 
     // Tạo user mới (password tự động được hash bởi pre-save hook)
-    const user = await User.create({ name, email, password, level: level || 'B1' });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      level: level || 'B1',
+    });
 
     const token = signToken(user._id);
 

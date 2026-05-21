@@ -8,23 +8,26 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useFocusEffect } from '@react-navigation/native';
 import { getListeningDetail } from '../../services/api';
+import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5];
 const SPEED_LABELS = { 0.75: '0.75x', 1: '1x', 1.25: '1.25x', 1.5: '1.5x' };
 
 export default function ListeningDetailScreen({ route, navigation }) {
   const { test } = route.params;
+  const resumeState = route.params?.resumeState || null;
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentPart, setCurrentPart] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [currentPart, setCurrentPart] = useState(resumeState?.currentPart || 0);
+  const [answers, setAnswers] = useState(resumeState?.answers || {});
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPos, setPlaybackPos] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1.0);
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
+  const [timeLeft, setTimeLeft] = useState(resumeState?.timeLeft || (test?.duration || 40) * 60);
+  const testStorageKey = test?._id || test?.title;
 
   // Waveform animation
   const waveAnims = useRef(Array.from({ length: 9 }, () => new Animated.Value(0.3))).current;
@@ -76,9 +79,22 @@ export default function ListeningDetailScreen({ route, navigation }) {
   }, []);
 
   useEffect(() => {
+    if (loading || !detail) return;
+
+    savePracticeState('listening', testStorageKey, {
+      testId: testStorageKey,
+      title: test.title,
+      level: detail.level || test.level,
+      currentPart,
+      answers,
+      timeLeft,
+    }).catch(() => {});
+  }, [loading, detail, currentPart, answers, timeLeft]);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) { clearInterval(timer); handleSubmit(); return 0; }
+        if (prev <= 1) { clearInterval(timer); handleSubmit(true); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -89,6 +105,9 @@ export default function ListeningDetailScreen({ route, navigation }) {
     try {
       const res = await getListeningDetail(test._id);
       setDetail(res.data.data);
+      if (!resumeState) {
+        setTimeLeft((res.data?.data?.duration || test?.duration || 40) * 60);
+      }
     } catch (e) {
       Alert.alert('Lỗi', 'Không thể tải đề thi');
     } finally {
@@ -167,24 +186,51 @@ export default function ListeningDetailScreen({ route, navigation }) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const resetPlayerState = async () => {
+    if (sound) {
+      await sound.stopAsync();
+      await sound.unloadAsync();
+      setSound(null);
+    }
+    stopWave();
+    setIsPlaying(false);
+    setPlaybackPos(0);
+    setDuration(0);
+  };
+
   const handleNextPart = async () => {
-    if (sound) { await sound.stopAsync(); await sound.unloadAsync(); setSound(null); }
-    stopWave(); setIsPlaying(false); setPlaybackPos(0);
+    await resetPlayerState();
     if (currentPart < detail.parts.length - 1) {
       setCurrentPart(p => p + 1);
-    } else {
-      handleSubmit();
     }
   };
 
-  const handleSubmit = () => {
+  const handlePreviousPart = async () => {
+    if (currentPart <= 0) return;
+    await resetPlayerState();
+    setCurrentPart(p => Math.max(0, p - 1));
+  };
+
+  const handleSubmit = (skipConfirm = false) => {
+    if (!skipConfirm) {
+      Alert.alert(
+        'Nộp bài?',
+        'Bạn có chắc muốn nộp bài nghe bây giờ không?',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          { text: 'Nộp bài', onPress: () => handleSubmit(true) },
+        ]
+      );
+      return;
+    }
+    clearPracticeState('listening', testStorageKey).catch(() => {});
     navigation.navigate('ListeningResult', { testId: test._id, answers, detail });
   };
 
   const handleClose = () => {
     Alert.alert(
       'Dừng làm bài?',
-      'Kết quả hiện tại sẽ không được lưu lại. Bạn có chắc chắn muốn thoát?',
+      'Tiến trình hiện tại sẽ được lưu tạm để bạn tiếp tục sau. Bạn có chắc chắn muốn thoát?',
       [
         { text: 'Tiếp tục làm', style: 'cancel' },
         {
@@ -215,6 +261,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
   const totalAnswered = Object.keys(answers).length;
   const totalQuestions = detail.parts.flatMap(p => p.questions).length;
   const isTimeLow = timeLeft < 300;
+  const isLastPart = currentPart === (detail?.parts?.length || 1) - 1;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -222,8 +269,15 @@ export default function ListeningDetailScreen({ route, navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
-          <Ionicons name="close" size={18} color="#1A1A2E" />
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={currentPart > 0 ? handlePreviousPart : handleClose}
+        >
+          <Ionicons
+            name={currentPart > 0 ? 'chevron-back' : 'close'}
+            size={currentPart > 0 ? 20 : 18}
+            color="#1A1A2E"
+          />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{test.title}</Text>
@@ -396,11 +450,11 @@ export default function ListeningDetailScreen({ route, navigation }) {
         </Text>
         <TouchableOpacity
           style={styles.submitBtn}
-          onPress={currentPart < (detail?.parts?.length || 1) - 1 ? handleNextPart : handleSubmit}
+          onPress={isLastPart ? () => handleSubmit() : handleNextPart}
           activeOpacity={0.85}
         >
-          <Ionicons name="lock-closed" size={18} color="#fff" />
-          <Text style={styles.submitBtnText}>Nộp bài</Text>
+          <Ionicons name={isLastPart ? 'lock-closed' : 'arrow-forward'} size={18} color="#fff" />
+          <Text style={styles.submitBtnText}>{isLastPart ? 'Nộp bài' : 'Qua phần tiếp theo'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

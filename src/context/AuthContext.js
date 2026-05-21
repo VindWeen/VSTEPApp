@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login as loginAPI, register as registerAPI } from '../services/api';
+import { getMe, login as loginAPI, register as registerAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -16,6 +16,19 @@ export function AuthProvider({ children }) {
       if (stored) {
         setToken(stored);
         if (storedUser) setUser(JSON.parse(storedUser));
+        try {
+          const res = await getMe();
+          const freshUser = res.data?.user;
+          if (freshUser) {
+            setUser(freshUser);
+            await AsyncStorage.setItem('user', JSON.stringify(freshUser));
+          }
+        } catch (error) {
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.removeItem('user');
+          setToken(null);
+          setUser(null);
+        }
       }
       setLoading(false);
     };

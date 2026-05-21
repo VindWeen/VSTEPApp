@@ -1,4 +1,5 @@
-const Question = require('../models/Question');
+const ListeningTest = require('../models/ListeningTest');
+const ReadingTest = require('../models/ReadingTest');
 
 // GET /api/questions/listening
 // Query: ?level=B2&page=1&limit=10
@@ -6,16 +7,16 @@ const getListeningTests = async (req, res, next) => {
   try {
     const { level, page = 1, limit = 20 } = req.query;
 
-    const filter = { skill: 'listening', isActive: true };
+    const filter = { isActive: true };
     if (level) filter.level = level;
 
-    const tests = await Question.find(filter)
+    const tests = await ListeningTest.find(filter)
       .select('title level duration totalQuestions description createdAt') // Không trả về parts (nặng)
       .sort({ createdAt: -1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit));
 
-    const total = await Question.countDocuments(filter);
+    const total = await ListeningTest.countDocuments(filter);
 
     res.status(200).json({
       success: true,
@@ -32,9 +33,8 @@ const getListeningTests = async (req, res, next) => {
 // Trả về đầy đủ đề thi bao gồm parts + questions (KHÔNG bao gồm correctAnswer – chỉ trả sau khi nộp bài)
 const getListeningTestById = async (req, res, next) => {
   try {
-    const test = await Question.findOne({
+    const test = await ListeningTest.findOne({
       _id: req.params.id,
-      skill: 'listening',
       isActive: true,
     });
 
@@ -60,16 +60,16 @@ const getReadingTests = async (req, res, next) => {
   try {
     const { level, page = 1, limit = 20 } = req.query;
 
-    const filter = { skill: 'reading', isActive: true };
+    const filter = { isActive: true };
     if (level) filter.level = level;
 
-    const tests = await Question.find(filter)
+    const tests = await ReadingTest.find(filter)
       .select('title level duration totalQuestions description createdAt')
       .sort({ createdAt: -1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit));
 
-    const total = await Question.countDocuments(filter);
+    const total = await ReadingTest.countDocuments(filter);
 
     res.status(200).json({ success: true, total, page: Number(page), data: tests });
   } catch (error) {
@@ -80,11 +80,7 @@ const getReadingTests = async (req, res, next) => {
 // GET /api/questions/reading/:id
 const getReadingTestById = async (req, res, next) => {
   try {
-    const test = await Question.findOne({
-      _id: req.params.id,
-      skill: 'reading',
-      isActive: true,
-    });
+    const test = await ReadingTest.findOne({ _id: req.params.id, isActive: true });
 
     if (!test) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy đề thi' });
@@ -106,7 +102,9 @@ const getReadingTestById = async (req, res, next) => {
 // GET /api/questions/:id/answers  (chỉ dùng sau khi nộp bài để hiển thị đáp án)
 const getAnswers = async (req, res, next) => {
   try {
-    const test = await Question.findById(req.params.id);
+    const test =
+      (await ListeningTest.findById(req.params.id)) ||
+      (await ReadingTest.findById(req.params.id));
     if (!test) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy đề thi' });
     }

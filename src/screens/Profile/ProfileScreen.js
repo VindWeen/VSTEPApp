@@ -15,12 +15,14 @@ const SKILL_BARS = [
 ];
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigation = useNavigation();
 
   const name = user?.name || 'Nguyễn Văn Minh';
   const email = user?.email || 'minhnv@gmail.com';
   const level = user?.level || 'B2';
+  const role = user?.role || 'user';
+  const isAdmin = role === 'admin';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -52,6 +54,11 @@ export default function ProfileScreen() {
             <View style={styles.levelBadge}>
               <Text style={styles.levelText}>{level}</Text>
             </View>
+            {isAdmin ? (
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>ADMIN</Text>
+              </View>
+            ) : null}
             <Text style={styles.userEmail}>{email}</Text>
           </View>
           <TouchableOpacity style={styles.editBtn}>
@@ -92,6 +99,22 @@ export default function ProfileScreen() {
           <Text style={styles.historyBtnText}>Xem lịch sử làm bài</Text>
           <Ionicons name="chevron-forward" size={18} color="#fff" style={{marginLeft: 'auto'}} />
         </TouchableOpacity>
+
+        {isAdmin ? (
+          <TouchableOpacity
+            style={styles.adminBtn}
+            onPress={() => navigation.navigate('AdminDashboard')}
+          >
+            <View style={styles.adminIconWrap}>
+              <Ionicons name="shield-checkmark" size={20} color="#102A43" />
+            </View>
+            <View style={styles.adminTextWrap}>
+              <Text style={styles.adminTitle}>Khu quản trị đề thi</Text>
+              <Text style={styles.adminSubtitle}>Tạo nhanh đề Listening, Reading, Writing và Speaking</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#102A43" />
+          </TouchableOpacity>
+        ) : null}
 
         {/* Skill progress */}
         <View style={styles.section}>
@@ -175,6 +198,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 2, borderRadius: 8,
   },
   levelText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#102A43',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  roleText: { fontSize: 11, fontWeight: '800', color: '#fff' },
   userEmail: { fontSize: 13, color: '#757575' },
   editBtn: {
     borderWidth: 1.5, borderColor: '#1565C0', borderRadius: 20,
@@ -201,6 +232,26 @@ const styles = StyleSheet.create({
     shadowColor: '#1565C0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3,
   },
   historyBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  adminBtn: {
+    backgroundColor: '#FEC84B',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  adminIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#FFF7D6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminTextWrap: { flex: 1 },
+  adminTitle: { color: '#102A43', fontSize: 15, fontWeight: '800' },
+  adminSubtitle: { color: '#334E68', fontSize: 12, marginTop: 3, lineHeight: 17 },
 
   // Skill progress
   section: {

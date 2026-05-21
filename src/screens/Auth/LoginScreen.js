@@ -32,7 +32,7 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          
+
           <View style={styles.headerCentered}>
             <View style={styles.logoSquare}>
               <MaterialCommunityIcons name="school" size={40} color="#FFF" />
@@ -124,9 +124,9 @@ export default function LoginScreen() {
           {/* Quick test login */}
           <TouchableOpacity
             style={styles.quickBtn}
-            onPress={() => { setEmail('quang@test.com'); setPassword('123456'); }}
+            onPress={() => { setEmail('admin@gmail.com'); setPassword('123456'); }}
           >
-            <Ionicons name="flash-outline" size={16} color="#94A3B8" style={{marginRight: 4}} />
+            <Ionicons name="flash-outline" size={16} color="#94A3B8" style={{ marginRight: 4 }} />
             <Text style={styles.quickBtnText}>Dev: Điền tài khoản test</Text>
           </TouchableOpacity>
 
@@ -139,15 +139,15 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   container: { flexGrow: 1, padding: 24, paddingBottom: 40, justifyContent: 'center' },
-  
+
   headerCentered: { alignItems: 'center', marginBottom: 40 },
-  logoSquare: { width: 64, height: 64, backgroundColor: '#1565C0', borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 8, shadowColor: '#1565C0', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 8 },
+  logoSquare: { width: 64, height: 64, backgroundColor: '#1565C0', borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 8, shadowColor: '#1565C0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
   appName: { fontSize: 16, fontWeight: '800', color: '#1565C0' },
 
   header: { marginBottom: 32 },
   title: { fontSize: 32, fontWeight: '800', color: '#0F172A', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#64748B', lineHeight: 22 },
-  
+
   form: { width: '100%' },
   inputContainer: { marginBottom: 20 },
   label: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 8 },
@@ -163,10 +163,10 @@ const styles = StyleSheet.create({
   inputWrapperFocused: { borderColor: '#1565C0', backgroundColor: '#F8FAFC' },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, paddingVertical: 16, fontSize: 16, color: '#0F172A' },
-  
+
   forgotPasswordRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 24 },
   forgotPasswordText: { color: '#1565C0', fontSize: 14, fontWeight: '700' },
-  
+
   submitBtn: {
     backgroundColor: '#1565C0',
     borderRadius: 16,
@@ -177,11 +177,11 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   submitBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
-  
+
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
   dividerText: { marginHorizontal: 16, color: '#64748B', fontSize: 14 },
-  
+
   socialBtn: {
     flexDirection: 'row',
     alignItems: 'center',

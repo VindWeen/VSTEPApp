@@ -11,6 +11,8 @@ import { getListeningDetail } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
 import { updateFullMockProgress } from '../../utils/fullMockTest';
 
+import { useTheme } from '../../context/ThemeContext';
+
 const SPEEDS = [0.75, 1, 1.25, 1.5];
 const SPEED_LABELS = { 0.75: '0.75x', 1: '1x', 1.25: '1.25x', 1.5: '1.5x' };
 
@@ -18,6 +20,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
   const { test } = route.params;
   const resumeState = route.params?.resumeState || null;
   const fullMockMode = route.params?.fullMockMode || false;
+  const { isDarkMode, theme } = useTheme();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentPart, setCurrentPart] = useState(resumeState?.currentPart || 0);
@@ -66,13 +69,15 @@ export default function ListeningDetailScreen({ route, navigation }) {
           parent.setOptions({
             tabBarStyle: {
               height: 65, paddingBottom: 8, paddingTop: 4,
-              backgroundColor: '#fff', borderTopWidth: 1,
-              borderTopColor: '#F0F0F0', elevation: 10,
+              backgroundColor: isDarkMode ? '#1E1E1E' : '#fff',
+              borderTopWidth: 1,
+              borderTopColor: isDarkMode ? '#2C2C2C' : '#F0F0F0',
+              elevation: 10,
             }
           });
         }
       };
-    }, [navigation])
+    }, [navigation, isDarkMode])
   );
 
   useEffect(() => {
@@ -253,7 +258,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
       return;
     }
 
-    navigation.navigate('ListeningResult', { testId: test._id, answers, detail });
+    navigation.replace('ListeningResult', { testId: test._id, answers, detail });
   };
 
   const handleClose = () => {
@@ -276,9 +281,9 @@ export default function ListeningDetailScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1565C0" />
-        <Text style={styles.loadingText}>Đang tải đề thi...</Text>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={isDarkMode ? '#90CAF9' : '#1565C0'} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Đang tải đề thi...</Text>
       </View>
     );
   }
@@ -291,44 +296,48 @@ export default function ListeningDetailScreen({ route, navigation }) {
   const totalQuestions = detail.parts.flatMap(p => p.questions).length;
   const isTimeLow = timeLeft < 300;
   const isLastPart = currentPart === (detail?.parts?.length || 1) - 1;
+  const accentColor = isDarkMode ? '#90CAF9' : '#1565C0';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <TouchableOpacity
-          style={styles.closeBtn}
+          style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F5F5F5' }]}
           onPress={currentPart > 0 ? handlePreviousPart : handleClose}
         >
           <Ionicons
             name={currentPart > 0 ? 'chevron-back' : 'close'}
             size={currentPart > 0 ? 20 : 18}
-            color="#1A1A2E"
+            color={theme.text}
           />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{test.title}</Text>
-          <Text style={styles.headerSub}>{totalAnswered}/{totalQuestions} câu đã trả lời</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{test.title}</Text>
+          <Text style={[styles.headerSub, { color: theme.textSecondary }]}>{totalAnswered}/{totalQuestions} câu đã trả lời</Text>
         </View>
-        <View style={[styles.timerBadge, isTimeLow && styles.timerBadgeRed]}>
-          <Ionicons name="time-outline" size={14} color={isTimeLow ? '#fff' : '#E53935'} />
-          <Text style={[styles.timerText, isTimeLow && styles.timerTextWhite]}>
+        <View style={[styles.timerBadge, isTimeLow ? styles.timerBadgeRed : { backgroundColor: isDarkMode ? '#2C2C2C' : '#FFEBEE' }]}>
+          <Ionicons name="time-outline" size={14} color={isTimeLow ? '#fff' : (isDarkMode ? '#FF8A80' : '#E53935')} />
+          <Text style={[styles.timerText, isTimeLow ? styles.timerTextWhite : { color: isDarkMode ? '#FF8A80' : '#E53935' }]}>
             {formatCountdown(timeLeft)}
           </Text>
         </View>
       </View>
 
       {/* Blue progress line under header */}
-      <View style={styles.progressLine}>
-        <View style={[styles.progressLineFill, { width: `${(totalAnswered / Math.max(totalQuestions, 1)) * 100}%` }]} />
+      <View style={[styles.progressLine, { backgroundColor: theme.border }]}>
+        <View style={[styles.progressLineFill, { width: `${(totalAnswered / Math.max(totalQuestions, 1)) * 100}%`, backgroundColor: accentColor }]} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
         {/* Audio Player Card */}
-        <View style={styles.audioCard}>
+        <View style={[
+          styles.audioCard,
+          isDarkMode && { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border, shadowColor: '#000' }
+        ]}>
           {/* Part tag + title */}
           <View style={styles.audioCardTopRow}>
             <View style={styles.partTag}>
@@ -361,6 +370,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
                   {
                     height: anim.interpolate({ inputRange: [0, 1], outputRange: [6, 36] }),
                     opacity: isPlaying ? 1 : 0.4,
+                    backgroundColor: isDarkMode ? accentColor : '#fff',
                   },
                 ]}
               />
@@ -376,7 +386,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
               maximumValue={duration || 1}
               value={playbackPos}
               onSlidingComplete={handleSeek}
-              minimumTrackTintColor="#BBDEFB"
+              minimumTrackTintColor={isDarkMode ? accentColor : '#BBDEFB'}
               maximumTrackTintColor="rgba(255,255,255,0.3)"
               thumbTintColor="#fff"
               disabled={!sound}
@@ -386,7 +396,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
 
           {/* Controls */}
           {loadingAudio ? (
-            <ActivityIndicator color="#fff" style={{ marginVertical: 16 }} />
+            <ActivityIndicator color={isDarkMode ? accentColor : '#fff'} style={{ marginVertical: 16 }} />
           ) : (
             <View style={styles.controlsRow}>
               <TouchableOpacity style={styles.skipBtn} onPress={skipBackward} disabled={!sound}>
@@ -401,7 +411,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
                 <Ionicons
                   name={!sound ? 'play' : isPlaying ? 'pause' : 'play'}
                   size={30}
-                  color="#1565C0"
+                  color={accentColor}
                   style={{ marginLeft: (!sound || !isPlaying) ? 3 : 0 }}
                 />
               </TouchableOpacity>
@@ -421,7 +431,10 @@ export default function ListeningDetailScreen({ route, navigation }) {
                 style={[styles.speedBtn, playbackRate === rate && styles.speedBtnActive]}
                 onPress={() => changeSpeed(rate)}
               >
-                <Text style={[styles.speedBtnText, playbackRate === rate && styles.speedBtnTextActive]}>
+                <Text style={[
+                  styles.speedBtnText,
+                  playbackRate === rate && (isDarkMode ? { color: '#121212' } : styles.speedBtnTextActive)
+                ]}>
                   {SPEED_LABELS[rate]}
                 </Text>
               </TouchableOpacity>
@@ -432,36 +445,54 @@ export default function ListeningDetailScreen({ route, navigation }) {
         {/* Questions */}
         <View style={styles.questionsSection}>
           <View style={styles.questionsSectionHeader}>
-            <Text style={styles.questionsSectionTitle}>
+            <Text style={[styles.questionsSectionTitle, { color: theme.text }]}>
               Câu hỏi{' '}
-              <Text style={styles.questionsSectionRange}>
+              <Text style={[styles.questionsSectionRange, { color: theme.textSecondary }]}>
                 ({part.questions[0]?.questionNumber}–{part.questions[part.questions.length - 1]?.questionNumber})
               </Text>
             </Text>
           </View>
 
           {part.questions.map((q) => (
-            <View key={q.questionNumber} style={styles.questionCard}>
+            <View key={q.questionNumber} style={[styles.questionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <View style={styles.questionHeader}>
-                <View style={styles.qNumBadge}>
-                  <Text style={styles.qNumText}>{q.questionNumber}</Text>
+                <View style={[styles.qNumBadge, { backgroundColor: accentColor }]}>
+                  <Text style={[styles.qNumText, { color: isDarkMode ? '#121212' : '#fff' }]}>{q.questionNumber}</Text>
                 </View>
-                <Text style={styles.questionText}>{q.questionText}</Text>
+                <Text style={[styles.questionText, { color: theme.text }]}>{q.questionText}</Text>
               </View>
 
               {['A', 'B', 'C', 'D'].map(opt => {
                 const isSelected = answers[q.questionNumber] === opt;
+                const optionBg = isSelected
+                  ? (isDarkMode ? 'rgba(144, 202, 249, 0.15)' : '#EEF4FF')
+                  : theme.inputBg;
+                const optionBorder = isSelected
+                  ? accentColor
+                  : theme.inputBorder;
+                const optionTextColor = isSelected
+                  ? accentColor
+                  : theme.text;
+                
                 return (
                   <TouchableOpacity
                     key={opt}
-                    style={[styles.option, isSelected && styles.optionSelected]}
+                    style={[styles.option, { backgroundColor: optionBg, borderColor: optionBorder }]}
                     onPress={() => selectAnswer(q.questionNumber, opt)}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.optionRadio, isSelected && styles.optionRadioSelected]}>
-                      {isSelected && <View style={styles.optionRadioDot} />}
+                    <View style={[
+                      styles.optionRadio,
+                      isSelected && { borderColor: accentColor },
+                      !isSelected && { borderColor: isDarkMode ? '#444' : '#B0BEC5' }
+                    ]}>
+                      {isSelected && <View style={[styles.optionRadioDot, { backgroundColor: accentColor }]} />}
                     </View>
-                    <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                    <Text style={[
+                      styles.optionText,
+                      { color: optionTextColor },
+                      isSelected && { fontWeight: '600' }
+                    ]}>
                       {opt}. {q.options?.[opt] || ''}
                     </Text>
                   </TouchableOpacity>
@@ -473,17 +504,17 @@ export default function ListeningDetailScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerCount}>
-          Đã trả lời: <Text style={styles.footerCountBold}>{totalAnswered}/{totalQuestions}</Text> câu
+      <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
+        <Text style={[styles.footerCount, { color: theme.textSecondary }]}>
+          Đã trả lời: <Text style={[styles.footerCountBold, { color: accentColor }]}>{totalAnswered}/{totalQuestions}</Text> câu
         </Text>
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={[styles.submitBtn, { backgroundColor: accentColor }]}
           onPress={isLastPart ? () => handleSubmit() : handleNextPart}
           activeOpacity={0.85}
         >
-          <Ionicons name={isLastPart ? 'lock-closed' : 'arrow-forward'} size={18} color="#fff" />
-          <Text style={styles.submitBtnText}>{isLastPart ? 'Nộp bài' : 'Qua phần tiếp theo'}</Text>
+          <Ionicons name={isLastPart ? 'lock-closed' : 'arrow-forward'} size={18} color={isDarkMode ? '#121212' : '#fff'} />
+          <Text style={[styles.submitBtnText, { color: isDarkMode ? '#121212' : '#fff' }]}>{isLastPart ? 'Nộp bài' : 'Qua phần tiếp theo'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

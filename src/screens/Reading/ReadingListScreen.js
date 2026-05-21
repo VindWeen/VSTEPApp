@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,26 +16,53 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getMyResults, getReadingTests } from '../../services/api';
 import { getPracticeStateKey, loadPracticeStates } from '../../utils/practiceState';
+import { getCache, setCache } from '../../utils/cache';
+import { useTheme } from '../../context/ThemeContext';
 
 const FILTERS = ['Tất cả', 'A2', 'B1', 'B2', 'C1'];
 
 export default function ReadingListScreen({ navigation }) {
+  const { isDarkMode, theme } = useTheme();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Tất cả');
 
-  const fetchTests = useCallback(async () => {
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const historyItemsRef = useRef([]);
+
+  const fetchTests = useCallback(async (pageNum = 1, isLoadMore = false) => {
     try {
-      const [testsRes, historyRes] = await Promise.all([
-        getReadingTests({ limit: 100 }),
-        getMyResults({ skill: 'reading', limit: 100 }),
-      ]);
-      const testItems = testsRes.data?.data || [];
-      const historyItems = historyRes.data?.data || [];
+      const apiParams = {
+        page: pageNum,
+        limit: 10,
+      };
+      if (activeFilter !== 'Tất cả') {
+        apiParams.level = activeFilter;
+      }
+
+      let testItems = [];
+      let totalCount = 0;
+      if (pageNum === 1) {
+        const [testsRes, historyRes] = await Promise.all([
+          getReadingTests(apiParams),
+          getMyResults({ skill: 'reading', limit: 100 }),
+        ]);
+        testItems = testsRes.data?.data || [];
+        totalCount = testsRes.data?.total || 0;
+        historyItemsRef.current = historyRes.data?.data || [];
+      } else {
+        const testsRes = await getReadingTests(apiParams);
+        testItems = testsRes.data?.data || [];
+        totalCount = testsRes.data?.total || 0;
+      }
+
       const draftMap = await loadPracticeStates('reading', testItems.map((item) => item._id));
 
-      const bestScoreByTitle = historyItems.reduce((acc, item) => {
+      const bestScoreByTitle = historyItemsRef.current.reduce((acc, item) => {
         const title = item.testTitle;
         const score = Number(item.score) || 0;
         if (!title) return acc;
@@ -43,40 +70,84 @@ export default function ReadingListScreen({ navigation }) {
         return acc;
       }, {});
 
-      setTests(
-        testItems.map((item) => {
-          const draft = draftMap[getPracticeStateKey('reading', item._id)];
-          const bestScore = bestScoreByTitle[item.title] || 0;
-          const status = draft ? 'inProgress' : bestScore > 0 ? 'done' : 'notDone';
+      const processedItems = testItems.map((item) => {
+        const draft = draftMap[getPracticeStateKey('reading', item._id)];
+        const bestScore = bestScoreByTitle[item.title] || 0;
+        const status = draft ? 'inProgress' : bestScore > 0 ? 'done' : 'notDone';
 
-          return {
-            ...item,
-            status,
-            draft,
-            bestScore,
-          };
-        })
-      );
-    } catch {
-      setTests([]);
+        return {
+          ...item,
+          status,
+          draft,
+          bestScore,
+        };
+      });
+
+      if (pageNum === 1) {
+        setTests(processedItems);
+        setTotal(totalCount);
+        setPage(1);
+        setHasMore(testItems.length === 10);
+        await setCache(`reading_tests_${activeFilter}`, { data: processedItems, total: totalCount });
+      } else {
+        setTests((prev) => {
+          const existingIds = new Set(prev.map(i => i._id));
+          const uniqueNew = processedItems.filter(i => !existingIds.has(i._id));
+          return [...prev, ...uniqueNew];
+        });
+        setTotal(totalCount);
+        setPage(pageNum);
+        setHasMore(testItems.length === 10);
+      }
+    } catch (e) {
+      console.error('Lỗi load đề đọc:', e.message);
+      if (!isLoadMore) {
+        setTests([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [activeFilter]);
+
+  const loadCacheAndFetch = useCallback(async () => {
+    const cached = await getCache(`reading_tests_${activeFilter}`);
+    if (cached) {
+      if (Array.isArray(cached)) {
+        setTests(cached);
+        setTotal(cached.length);
+      } else {
+        setTests(cached.data || []);
+        setTotal(cached.total || 0);
+      }
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    await fetchTests(1, false);
+  }, [activeFilter, fetchTests]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchTests();
-    }, [fetchTests])
+      loadCacheAndFetch();
+    }, [loadCacheAndFetch])
   );
 
-  const filteredTests = useMemo(() => {
-    return tests.filter((test) => {
-      if (activeFilter === 'Tất cả') return true;
-      return test.level === activeFilter;
-    });
-  }, [activeFilter, tests]);
+  const handleLoadMore = () => {
+    if (loading || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    fetchTests(page + 1, true);
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={isDarkMode ? '#81C784' : '#2E7D32'} />
+      </View>
+    );
+  };
 
   const openReadingTest = (item) => {
     if (item.status === 'inProgress' && item.draft) {
@@ -97,34 +168,36 @@ export default function ReadingListScreen({ navigation }) {
     const progressWidth = item.totalQuestions
       ? `${Math.min((item.bestScore / item.totalQuestions) * 100, 100)}%`
       : '0%';
+    const progressColor = isDarkMode ? '#81C784' : '#2E7D32';
+    const progressBg = isDarkMode ? 'rgba(129, 199, 132, 0.15)' : '#E8F5E9';
 
     return (
       <TouchableOpacity
-        style={styles.card}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => openReadingTest(item)}
         activeOpacity={0.85}
       >
         <View style={styles.cardTop}>
           <View style={styles.cardLeft}>
-            <View style={styles.cardIcon}>
-              <Ionicons name="document-text" size={22} color="#2E7D32" />
+            <View style={[styles.cardIcon, { backgroundColor: isDarkMode ? 'rgba(129, 199, 132, 0.15)' : '#E8F5E9' }]}>
+              <Ionicons name="document-text" size={22} color={isDarkMode ? '#81C784' : '#2E7D32'} />
             </View>
             <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
+              <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
                 {item.title}
               </Text>
-              <Text style={styles.cardMeta}>
+              <Text style={[styles.cardMeta, { color: theme.textSecondary }]}>
                 {item.totalQuestions} câu • {item.duration} phút • {item.level}
               </Text>
               {item.status === 'inProgress' ? (
-                <Text style={styles.cardDraftText}>Đang làm dở</Text>
+                <Text style={[styles.cardDraftText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>Đang làm dở</Text>
               ) : null}
               {item.status === 'done' ? (
                 <View style={styles.scoreWrap}>
-                  <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: progressWidth }]} />
+                  <View style={[styles.progressBarBg, { backgroundColor: progressBg }]}>
+                    <View style={[styles.progressBarFill, { width: progressWidth, backgroundColor: progressColor }]} />
                   </View>
-                  <Text style={styles.scoreText}>
+                  <Text style={[styles.scoreText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>
                     {item.bestScore}/{item.totalQuestions}
                   </Text>
                 </View>
@@ -134,33 +207,36 @@ export default function ReadingListScreen({ navigation }) {
 
           <View style={styles.cardRight}>
             {item.status === 'done' ? (
-              <Text style={styles.doneText}>Đã làm</Text>
+              <Text style={[styles.doneText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>Đã làm</Text>
             ) : item.status === 'inProgress' ? (
-              <Text style={styles.inProgressText}>Đang làm</Text>
+              <Text style={[styles.inProgressText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>Đang làm</Text>
             ) : (
-              <Text style={styles.notDoneText}>Chưa làm</Text>
+              <Text style={[styles.notDoneText, { color: theme.textSecondary }]}>Chưa làm</Text>
             )}
           </View>
         </View>
 
-        <TouchableOpacity style={styles.actionBtn} onPress={() => openReadingTest(item)}>
-          <Text style={styles.actionBtnText}>{getActionLabel(item)}</Text>
+        <TouchableOpacity
+          style={[styles.actionBtn, { borderColor: isDarkMode ? '#81C784' : '#2E7D32' }]}
+          onPress={() => openReadingTest(item)}
+        >
+          <Text style={[styles.actionBtnText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>{getActionLabel(item)}</Text>
         </TouchableOpacity>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.background }]}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#1A1A2E" />
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Luyện Đọc</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Luyện Đọc</Text>
         <TouchableOpacity style={styles.iconBtn}>
-          <Ionicons name="ellipsis-horizontal" size={24} color="#1A1A2E" />
+          <Ionicons name="ellipsis-horizontal" size={24} color={theme.text} />
         </TouchableOpacity>
       </View>
 
@@ -175,7 +251,7 @@ export default function ReadingListScreen({ navigation }) {
             <View style={styles.heroBadgeRow}>
               <View style={styles.heroBadge}>
                 <Ionicons name="document-text-outline" size={12} color="#fff" />
-                <Text style={styles.heroBadgeText}> {tests.length} đề</Text>
+                <Text style={styles.heroBadgeText}> {total} đề</Text>
               </View>
               <View style={styles.heroBadge}>
                 <Ionicons name="layers-outline" size={12} color="#fff" />
@@ -192,36 +268,42 @@ export default function ReadingListScreen({ navigation }) {
         style={styles.filterScrollView}
         contentContainerStyle={styles.filterScroll}
       >
-        {FILTERS.map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[styles.filterBtn, activeFilter === filter && styles.filterBtnActive]}
-            onPress={() => setActiveFilter(filter)}
-          >
-            <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-              {filter}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {FILTERS.map((filter) => {
+          const isActive = activeFilter === filter;
+          const btnBg = isActive ? (isDarkMode ? '#81C784' : '#2E7D32') : theme.card;
+          const btnBorder = isActive ? (isDarkMode ? '#81C784' : '#2E7D32') : theme.border;
+          const txtColor = isActive ? (isDarkMode ? '#121212' : '#fff') : theme.textSecondary;
+          return (
+            <TouchableOpacity
+              key={filter}
+              style={[styles.filterBtn, { backgroundColor: btnBg, borderColor: btnBorder }]}
+              onPress={() => setActiveFilter(filter)}
+            >
+              <Text style={[styles.filterText, { color: txtColor }]}>
+                {filter}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       <View style={styles.listHeader}>
         <View style={styles.listHeaderLeft}>
-          <Text style={styles.listHeaderTitle}>Đề thi</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{filteredTests.length}</Text>
+          <Text style={[styles.listHeaderTitle, { color: theme.text }]}>Đề thi</Text>
+          <View style={[styles.countBadge, { backgroundColor: isDarkMode ? '#81C784' : '#2E7D32' }]}>
+            <Text style={[styles.countBadgeText, { color: isDarkMode ? '#121212' : '#fff' }]}>{total}</Text>
           </View>
         </View>
-        <Text style={styles.seeAll}>Xem tất cả</Text>
+        <Text style={[styles.seeAll, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>Xem tất cả</Text>
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#2E7D32" />
+          <ActivityIndicator size="large" color={isDarkMode ? '#81C784' : '#2E7D32'} />
         </View>
       ) : (
         <FlatList
-          data={filteredTests}
+          data={tests}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
@@ -229,17 +311,22 @@ export default function ReadingListScreen({ navigation }) {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => {
+              onRefresh={async () => {
                 setRefreshing(true);
-                fetchTests();
+                await fetchTests(1, false);
+                setRefreshing(false);
               }}
-              colors={['#2E7D32']}
+              colors={[isDarkMode ? '#81C784' : '#2E7D32']}
+              tintColor={theme.text}
             />
           }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.15}
+          ListFooterComponent={renderFooter}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="folder-open-outline" size={60} color="#CFD8DC" />
-              <Text style={styles.emptyText}>Chưa có đề thi nào cho trình độ này</Text>
+              <Ionicons name="folder-open-outline" size={60} color={isDarkMode ? '#444' : '#CFD8DC'} />
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Chưa có đề thi nào cho trình độ này</Text>
             </View>
           }
         />
@@ -390,4 +477,9 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 14, fontWeight: '700', color: '#2E7D32' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
   emptyText: { textAlign: 'center', color: '#90A4AE', marginTop: 16, fontSize: 15, fontWeight: '500' },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

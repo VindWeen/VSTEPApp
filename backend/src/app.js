@@ -11,6 +11,7 @@ const resultsRoutes = require('./routes/results.routes');
 const writingRoutes = require('./routes/writing.routes');
 const speakingRoutes = require('./routes/speaking.routes');
 const adminRoutes = require('./routes/admin.routes');
+const fullMockRoutes = require('./routes/fullMock.routes');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/results', resultsRoutes);
 app.use('/api/writing', writingRoutes);
 app.use('/api/speaking', speakingRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/full-mock', fullMockRoutes);
 
 // ── 404 Handler ─────────────────────────────────────────
 app.use((req, res) => {

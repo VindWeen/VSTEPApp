@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { savePracticeState } from '../../utils/practiceState';
 import { updateFullMockProgress } from '../../utils/fullMockTest';
+import { useTheme } from '../../context/ThemeContext';
 
 const PREP_TIME = 28;
 
@@ -23,6 +24,7 @@ const MOCK_TASK = {
 };
 
 export default function SpeakingPrepScreen({ route, navigation }) {
+  const { isDarkMode, theme } = useTheme();
   const test = route.params?.test || { tasks: [MOCK_TASK] };
   const taskIndex = route.params?.taskIndex || 0;
   const resumeState = route.params?.resumeState || null;
@@ -125,53 +127,68 @@ export default function SpeakingPrepScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? theme.background : '#fff'} />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={handleHeaderLeftPress}>
-          <Ionicons name={hasPreviousTask ? 'arrow-back' : 'close'} size={20} color="#1A1A2E" />
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#333' : '#F5F5F5' }]} onPress={handleHeaderLeftPress}>
+          <Ionicons name={hasPreviousTask ? 'arrow-back' : 'close'} size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chuẩn bị</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Chuẩn bị</Text>
         <View style={styles.placeholder} />
       </View>
 
       <View style={styles.timerSection}>
-        <Animated.View style={[styles.timerOuter, { transform: [{ scale: pulseAnim }] }]}>
+        <Animated.View style={[
+          styles.timerOuter,
+          {
+            transform: [{ scale: pulseAnim }],
+            borderColor: isDarkMode ? '#8E24AA' : '#CE93D8',
+            backgroundColor: isDarkMode ? '#2D1F35' : '#F3E5F5',
+          }
+        ]}>
           <View style={styles.timerInner}>
-            <Text style={styles.timerNum}>{timeLeft}</Text>
-            <Text style={styles.timerLabel}>giây chuẩn bị</Text>
+            <Text style={[styles.timerNum, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>{timeLeft}</Text>
+            <Text style={[styles.timerLabel, { color: isDarkMode ? '#D1C4E9' : '#9575CD' }]}>giây chuẩn bị</Text>
           </View>
         </Animated.View>
-        <Text style={styles.partLabel}>{currentTask.partType || `Part ${taskIndex + 1}`}</Text>
+        <Text style={[styles.partLabel, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>{currentTask.partType || `Part ${taskIndex + 1}`}</Text>
       </View>
 
-      <View style={styles.taskCard}>
-        <Text style={styles.taskPrompt}>{currentTask.prompt || MOCK_TASK.prompt}</Text>
+      <View style={[styles.taskCard, { backgroundColor: theme.card, borderColor: isDarkMode ? '#8E24AA' : '#CE93D8' }]}>
+        <Text style={[styles.taskPrompt, { color: theme.text }]}>{currentTask.prompt || MOCK_TASK.prompt}</Text>
       </View>
 
       {currentDraft ? (
-        <View style={styles.savedCard}>
-          <Ionicons name="checkmark-circle" size={18} color="#2E7D32" />
-          <Text style={styles.savedText}>Part này đã có bản ghi. Bạn có thể vào nghe lại hoặc ghi âm lại.</Text>
+        <View style={[
+          styles.savedCard,
+          {
+            backgroundColor: isDarkMode ? '#1B2E1C' : '#E8F5E9',
+            borderColor: isDarkMode ? '#2E4C30' : '#C8E6C9',
+          }
+        ]}>
+          <Ionicons name="checkmark-circle" size={18} color={isDarkMode ? '#81C784' : '#2E7D32'} />
+          <Text style={[styles.savedText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>
+            Part này đã có bản ghi. Bạn có thể vào nghe lại hoặc ghi âm lại.
+          </Text>
         </View>
       ) : null}
 
-      <View style={styles.hintsCard}>
-        <Text style={styles.hintsTitle}>Gợi ý</Text>
+      <View style={[styles.hintsCard, { backgroundColor: isDarkMode ? '#2A1D30' : '#F3E5F5' }]}>
+        <Text style={[styles.hintsTitle, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>Gợi ý</Text>
         {hints.map((hint, index) => (
           <View key={`${hint}-${index}`} style={styles.hintItem}>
-            <View style={styles.hintBullet}>
+            <View style={[styles.hintBullet, { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>
               <Text style={styles.hintBulletText}>{index + 1}</Text>
             </View>
-            <Text style={styles.hintText}>{hint}</Text>
+            <Text style={[styles.hintText, { color: isDarkMode ? '#D1C4E9' : '#4A148C' }]}>{hint}</Text>
           </View>
         ))}
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
         <TouchableOpacity
-          style={styles.startBtn}
+          style={[styles.startBtn, { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]}
           onPress={() =>
             navigation.navigate(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
               ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),

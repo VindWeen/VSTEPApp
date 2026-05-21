@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
@@ -145,6 +146,8 @@ function TabIcon({ iconName, label, focused, color }) {
 
 // ── Main Tabs ─────────────────────────────────────────────
 function MainTabs() {
+  const { theme, isDarkMode } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -154,9 +157,9 @@ function MainTabs() {
           height: 65,
           paddingBottom: 8,
           paddingTop: 4,
-          backgroundColor: '#fff',
+          backgroundColor: theme.card,
           borderTopWidth: 1,
-          borderTopColor: '#F0F0F0',
+          borderTopColor: theme.border,
           elevation: 10,
         },
       }}
@@ -166,9 +169,14 @@ function MainTabs() {
         component={HomeStack}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon iconName="home" label="Home" focused={focused} color={focused ? '#1A73E8' : '#aaa'} />
+            <TabIcon
+              iconName="home"
+              label="Home"
+              focused={focused}
+              color={focused ? (isDarkMode ? '#90CAF9' : '#1A73E8') : (isDarkMode ? '#757575' : '#aaa')}
+            />
           ),
-          tabBarActiveTintColor: '#1A73E8',
+          tabBarActiveTintColor: isDarkMode ? '#90CAF9' : '#1A73E8',
         }}
       />
       <Tab.Screen
@@ -176,9 +184,14 @@ function MainTabs() {
         component={ListeningStack}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon iconName="headset" label="Nghe" focused={focused} color={focused ? '#1565C0' : '#aaa'} />
+            <TabIcon
+              iconName="headset"
+              label="Nghe"
+              focused={focused}
+              color={focused ? (isDarkMode ? '#64B5F6' : '#1565C0') : (isDarkMode ? '#757575' : '#aaa')}
+            />
           ),
-          tabBarActiveTintColor: '#1565C0',
+          tabBarActiveTintColor: isDarkMode ? '#64B5F6' : '#1565C0',
         }}
       />
       <Tab.Screen
@@ -186,9 +199,14 @@ function MainTabs() {
         component={ReadingStack}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon iconName="book" label="Đọc" focused={focused} color={focused ? '#2E7D32' : '#aaa'} />
+            <TabIcon
+              iconName="book"
+              label="Đọc"
+              focused={focused}
+              color={focused ? (isDarkMode ? '#81C784' : '#2E7D32') : (isDarkMode ? '#757575' : '#aaa')}
+            />
           ),
-          tabBarActiveTintColor: '#2E7D32',
+          tabBarActiveTintColor: isDarkMode ? '#81C784' : '#2E7D32',
         }}
       />
       <Tab.Screen
@@ -196,9 +214,14 @@ function MainTabs() {
         component={WritingStack}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon iconName="create" label="Viết" focused={focused} color={focused ? '#E65100' : '#aaa'} />
+            <TabIcon
+              iconName="create"
+              label="Viết"
+              focused={focused}
+              color={focused ? (isDarkMode ? '#FFB74D' : '#E65100') : (isDarkMode ? '#757575' : '#aaa')}
+            />
           ),
-          tabBarActiveTintColor: '#E65100',
+          tabBarActiveTintColor: isDarkMode ? '#FFB74D' : '#E65100',
         }}
       />
       <Tab.Screen
@@ -206,19 +229,35 @@ function MainTabs() {
         component={SpeakingStack}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon iconName="mic" label="Nói" focused={focused} color={focused ? '#6A1B9A' : '#aaa'} />
+            <TabIcon
+              iconName="mic"
+              label="Nói"
+              focused={focused}
+              color={focused ? (isDarkMode ? '#BA68C8' : '#6A1B9A') : (isDarkMode ? '#757575' : '#aaa')}
+            />
           ),
-          tabBarActiveTintColor: '#6A1B9A',
+          tabBarActiveTintColor: isDarkMode ? '#BA68C8' : '#6A1B9A',
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('Profile', { screen: 'ProfileMain' });
+          },
+        })}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon iconName="person" label="Hồ sơ" focused={focused} color={focused ? '#37474F' : '#aaa'} />
+            <TabIcon
+              iconName="person"
+              label="Hồ sơ"
+              focused={focused}
+              color={focused ? (isDarkMode ? '#CFD8DC' : '#37474F') : (isDarkMode ? '#757575' : '#aaa')}
+            />
           ),
-          tabBarActiveTintColor: '#37474F',
+          tabBarActiveTintColor: isDarkMode ? '#CFD8DC' : '#37474F',
         }}
       />
     </Tab.Navigator>
@@ -239,6 +278,7 @@ function AuthStack() {
 // ── Root Navigator ────────────────────────────────────────
 export default function AppNavigator() {
   const { token, loading } = useAuth();
+  const { isDarkMode } = useTheme();
   const [isReady, setIsReady] = React.useState(false);
   const [initialRoute, setInitialRoute] = React.useState('Auth');
 
@@ -257,14 +297,38 @@ export default function AppNavigator() {
 
   if (loading || !isReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#121212' : '#F5F7FA' }}>
         <ActivityIndicator size="large" color="#2196F3" />
       </View>
     );
   }
 
+  const MyLightTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: '#1565C0',
+      background: '#F5F7FA',
+      card: '#ffffff',
+      text: '#1A1A2E',
+      border: '#F0F2F5',
+    },
+  };
+
+  const MyDarkTheme = {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      primary: '#2196F3',
+      background: '#121212',
+      card: '#1E1E1E',
+      text: '#E0E0E0',
+      border: '#2C2C2C',
+    },
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={isDarkMode ? MyDarkTheme : MyLightTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={!token ? initialRoute : 'Main'}>
         {!token ? (
           <>

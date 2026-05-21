@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getListeningAnswers, getListeningDetail, submitResult } from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ListeningResultScreen({ route, navigation }) {
+  const { isDarkMode, theme } = useTheme();
   const { testId, answers, detail, historyResult, fromHistory, fromFullMock } = route.params;
   const [correctAnswers, setCorrectAnswers] = useState({});
   const [loading, setLoading] = useState(true);
@@ -37,11 +39,12 @@ export default function ListeningResultScreen({ route, navigation }) {
     }
 
     if (fromHistory) {
+      navigation.popToTop();
       navigation.getParent()?.navigate('Profile', { screen: 'History' });
       return;
     }
 
-    navigation.navigate('ListeningList');
+    navigation.popToTop();
   };
 
   useEffect(() => {
@@ -96,9 +99,9 @@ export default function ListeningResultScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1565C0" />
-        <Text style={styles.loadingText}>Đang chấm điểm...</Text>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={isDarkMode ? '#60A5FA' : '#1565C0'} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Đang chấm điểm...</Text>
       </View>
     );
   }
@@ -116,35 +119,35 @@ export default function ListeningResultScreen({ route, navigation }) {
   const { text: pctLabel, stars } = getLabel();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? theme.background : '#F5F7FA'} />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Kết quả</Text>
+      <View style={[styles.header, { backgroundColor: isDarkMode ? theme.background : '#F5F7FA' }]}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Kết quả</Text>
         <TouchableOpacity
-          style={styles.closeBtn}
+          style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#333' : '#F0F0F0' }]}
           onPress={navigateAfterReview}
         >
-          <Ionicons name="close" size={18} color="#1A1A2E" />
+          <Ionicons name="close" size={18} color={theme.text} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.scoreCard}>
+        <View style={[styles.scoreCard, { backgroundColor: isDarkMode ? '#1E293B' : '#DBEAFE' }]}>
           <View style={styles.circleOuter}>
-            <View style={styles.circleInner}>
-              <Text style={styles.circleScore}>{score.correct}/{score.total}</Text>
-              <Text style={styles.circleLabel}>Điểm số</Text>
+            <View style={[styles.circleInner, { borderColor: isDarkMode ? '#60A5FA' : '#1565C0', backgroundColor: theme.card }]}>
+              <Text style={[styles.circleScore, { color: theme.text }]}>{score.correct}/{score.total}</Text>
+              <Text style={[styles.circleLabel, { color: theme.textSecondary }]}>Điểm số</Text>
             </View>
-            <View style={styles.starBadge}>
+            <View style={[styles.starBadge, { backgroundColor: isDarkMode ? '#334155' : '#FFF3E0' }]}>
               <Ionicons name="star" size={16} color="#F59E0B" />
             </View>
           </View>
 
           <Text style={styles.pctRow}>
-            <Text style={styles.pctNum}>{pct}%</Text>
+            <Text style={[styles.pctNum, { color: isDarkMode ? '#60A5FA' : '#1565C0' }]}>{pct}%</Text>
             {'  '}
-            <Text style={styles.pctLabel}>{pctLabel}</Text>
+            <Text style={[styles.pctLabel, { color: theme.text }]}>{pctLabel}</Text>
           </Text>
 
           <View style={styles.starsRow}>
@@ -153,39 +156,39 @@ export default function ListeningResultScreen({ route, navigation }) {
                 key={i}
                 name="star"
                 size={22}
-                color={i < stars ? '#F59E0B' : '#E0E0E0'}
+                color={i < stars ? '#F59E0B' : (isDarkMode ? '#334155' : '#E0E0E0')}
               />
             ))}
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, styles.statCardGreen]}>
-            <View style={styles.statIconBg}>
-              <Ionicons name="checkmark-circle" size={22} color="#2E7D32" />
+          <View style={[styles.statCard, isDarkMode ? { backgroundColor: '#142F19' } : styles.statCardGreen]}>
+            <View style={[styles.statIconBg, isDarkMode && { backgroundColor: '#064E3B' }]}>
+              <Ionicons name="checkmark-circle" size={22} color={isDarkMode ? '#81C784' : '#2E7D32'} />
             </View>
-            <Text style={styles.statNum}>{score.correct}</Text>
-            <Text style={styles.statLabel}>Câu đúng</Text>
+            <Text style={[styles.statNum, isDarkMode && { color: '#81C784' }]}>{score.correct}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Câu đúng</Text>
           </View>
-          <View style={[styles.statCard, styles.statCardRed]}>
-            <View style={[styles.statIconBg, styles.statIconBgRed]}>
-              <Ionicons name="close-circle" size={22} color="#D32F2F" />
+          <View style={[styles.statCard, isDarkMode ? { backgroundColor: '#3B1A1A' } : styles.statCardRed]}>
+            <View style={[styles.statIconBg, isDarkMode ? { backgroundColor: '#7F1D1D' } : styles.statIconBgRed]}>
+              <Ionicons name="close-circle" size={22} color={isDarkMode ? '#E57373' : '#D32F2F'} />
             </View>
-            <Text style={[styles.statNum, styles.statNumRed]}>{score.wrong}</Text>
-            <Text style={styles.statLabel}>Câu sai</Text>
+            <Text style={[styles.statNum, isDarkMode ? { color: '#E57373' } : styles.statNumRed]}>{score.wrong}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Câu sai</Text>
           </View>
-          <View style={[styles.statCard, styles.statCardGray]}>
-            <View style={[styles.statIconBg, styles.statIconBgGray]}>
-              <Ionicons name="time-outline" size={22} color="#455A64" />
+          <View style={[styles.statCard, isDarkMode ? { backgroundColor: '#2D3748' } : styles.statCardGray]}>
+            <View style={[styles.statIconBg, isDarkMode ? { backgroundColor: '#1A202C' } : styles.statIconBgGray]}>
+              <Ionicons name="time-outline" size={22} color={isDarkMode ? '#90A4AE' : '#455A64'} />
             </View>
-            <Text style={[styles.statNum, styles.statNumGray]}>
+            <Text style={[styles.statNum, isDarkMode ? { color: '#90A4AE' } : styles.statNumGray]}>
               {fromHistory ? '--:--' : '30:00'}
             </Text>
-            <Text style={styles.statLabel}>Thời gian</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Thời gian</Text>
           </View>
         </View>
 
-        <Text style={styles.detailTitle}>Chi tiết đáp án</Text>
+        <Text style={[styles.detailTitle, { color: theme.text }]}>Chi tiết đáp án</Text>
 
         {allQuestions.map((q) => {
           const userAns = selectedAnswers[q.questionNumber];
@@ -195,7 +198,12 @@ export default function ListeningResultScreen({ route, navigation }) {
           return (
             <View
               key={q.questionNumber}
-              style={[styles.answerRow, isCorrect ? styles.answerRowCorrect : styles.answerRowWrong]}
+              style={[
+                styles.answerRow,
+                isCorrect
+                  ? (isDarkMode ? { backgroundColor: '#1B2E1C' } : styles.answerRowCorrect)
+                  : (isDarkMode ? { backgroundColor: '#2E1B1B' } : styles.answerRowWrong)
+              ]}
             >
               <View
                 style={[
@@ -207,37 +215,39 @@ export default function ListeningResultScreen({ route, navigation }) {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={styles.answerRowLabel}>Câu {q.questionNumber}</Text>
+                  <Text style={[styles.answerRowLabel, { color: theme.text }]}>Câu {q.questionNumber}</Text>
                   <Text
                     style={[
                       styles.answerText,
-                      isCorrect ? styles.answerTextCorrect : styles.answerTextWrong,
+                      isCorrect
+                        ? [styles.answerTextCorrect, isDarkMode && { color: '#81C784' }]
+                        : [styles.answerTextWrong, isDarkMode && { color: '#E57373' }],
                     ]}
                   >
                     Đáp án: {correctAns} {isCorrect ? '✓' : '✗'}
                   </Text>
                 </View>
                 {!isCorrect ? (
-                  <Text style={styles.userAnsText}>Bạn chọn: {userAns || 'Không làm'}</Text>
+                  <Text style={[styles.userAnsText, isDarkMode && { color: '#E57373' }]}>Bạn chọn: {userAns || 'Không làm'}</Text>
                 ) : null}
                 {showExplanation ? (
-                  <View style={styles.fullExplanationContainer}>
-                    {q.questionText ? <Text style={styles.fullQuestionText}>{q.questionText}</Text> : null}
+                  <View style={[styles.fullExplanationContainer, { borderTopColor: theme.border }]}>
+                    {q.questionText ? <Text style={[styles.fullQuestionText, { color: theme.text }]}>{q.questionText}</Text> : null}
                     {q.options && correctAns ? (
                       <View style={styles.fullAnswerRow}>
-                        <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
-                        <Text style={styles.fullAnswerText}>{correctAns}. {q.options[correctAns]}</Text>
+                        <Ionicons name="checkmark-circle" size={16} color={isDarkMode ? '#81C784' : '#2E7D32'} />
+                        <Text style={[styles.fullAnswerText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>{correctAns}. {q.options[correctAns]}</Text>
                       </View>
                     ) : null}
                     {correctAnswers[q.questionNumber]?.explanation ? (
-                      <View style={styles.explanationBox}>
+                      <View style={[styles.explanationBox, { backgroundColor: isDarkMode ? '#2A1F10' : '#FFF3E0' }]}>
                         <Ionicons
                           name="bulb-outline"
                           size={16}
-                          color="#F57C00"
+                          color={isDarkMode ? '#FFB74D' : '#F57C00'}
                           style={{ marginTop: 2 }}
                         />
-                        <Text style={styles.explanationText}>
+                        <Text style={[styles.explanationText, { color: isDarkMode ? '#FFB74D' : '#E65100' }]}>
                           {correctAnswers[q.questionNumber].explanation}
                         </Text>
                       </View>
@@ -251,27 +261,27 @@ export default function ListeningResultScreen({ route, navigation }) {
 
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={styles.actionBtnOutline}
+            style={[styles.actionBtnOutline, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => setShowExplanation(!showExplanation)}
           >
-            <Ionicons name={showExplanation ? 'bulb' : 'bulb-outline'} size={18} color="#1565C0" />
-            <Text style={styles.actionBtnOutlineText}>
+            <Ionicons name={showExplanation ? 'bulb' : 'bulb-outline'} size={18} color={isDarkMode ? '#60A5FA' : '#1565C0'} />
+            <Text style={[styles.actionBtnOutlineText, { color: isDarkMode ? '#60A5FA' : '#1565C0' }]}>
               {showExplanation ? 'Ẩn giải thích' : 'Xem giải thích'}
             </Text>
           </TouchableOpacity>
           {!fromHistory && !fromFullMock ? (
             <TouchableOpacity
-              style={styles.actionBtnOutline}
+              style={[styles.actionBtnOutline, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => navigation.navigate('ListeningDetail', { test: { _id: testId, ...detailData } })}
             >
-              <Ionicons name="refresh-outline" size={18} color="#1A1A2E" />
-              <Text style={[styles.actionBtnOutlineText, { color: '#1A1A2E' }]}>Làm lại</Text>
+              <Ionicons name="refresh-outline" size={18} color={theme.text} />
+              <Text style={[styles.actionBtnOutlineText, { color: theme.text }]}>Làm lại</Text>
             </TouchableOpacity>
           ) : null}
         </View>
 
         <TouchableOpacity
-          style={styles.homeBtn}
+          style={[styles.homeBtn, { backgroundColor: isDarkMode ? '#2563EB' : '#1565C0' }]}
           onPress={navigateAfterReview}
           activeOpacity={0.85}
         >

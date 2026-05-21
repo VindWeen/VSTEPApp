@@ -16,6 +16,8 @@ import { getReadingDetail } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
 import { updateFullMockProgress } from '../../utils/fullMockTest';
 
+import { useTheme } from '../../context/ThemeContext';
+
 const MOCK_TEST = {
   _id: 'mock1',
   title: 'Đề Đọc Số 1',
@@ -56,6 +58,7 @@ export default function ReadingDetailScreen({ route, navigation }) {
   const initialTest = route.params?.test || MOCK_TEST;
   const resumeState = route.params?.resumeState || null;
   const fullMockMode = route.params?.fullMockMode || false;
+  const { isDarkMode, theme } = useTheme();
   const [test, setTest] = useState(normalizeReadingTest(initialTest));
   const [loading, setLoading] = useState(!initialTest?.passages?.length && !initialTest?.parts?.length);
   const [answers, setAnswers] = useState(resumeState?.answers || {});
@@ -219,30 +222,32 @@ export default function ReadingDetailScreen({ route, navigation }) {
     );
   };
 
+  const primaryColor = isDarkMode ? '#81C784' : '#2E7D32';
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingWrap}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-        <Text style={styles.loadingText}>Đang tải đầy đủ đề đọc...</Text>
+      <SafeAreaView style={[styles.loadingWrap, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={primaryColor} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Đang tải đầy đủ đề đọc...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleExit} style={styles.closeBtn}>
-          <Ionicons name="close" size={20} color="#1A1A2E" />
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={handleExit} style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F5F5F5' }]}>
+          <Ionicons name="close" size={20} color={theme.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{test.title || 'Đề Đọc'}</Text>
-          <Text style={styles.headerSub}>{answeredCount}/{totalQ} câu đã trả lời</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{test.title || 'Đề Đọc'}</Text>
+          <Text style={[styles.headerSub, { color: theme.textSecondary }]}>{answeredCount}/{totalQ} câu đã trả lời</Text>
         </View>
-        <View style={[styles.timerBadge, timeLeft < 300 && styles.timerBadgeWarning]}>
-          <Ionicons name="time-outline" size={16} color={timeLeft < 300 ? '#fff' : '#2E7D32'} />
-          <Text style={[styles.timerText, timeLeft < 300 && styles.timerTextWarning]}>
+        <View style={[styles.timerBadge, timeLeft < 300 ? styles.timerBadgeWarning : { backgroundColor: isDarkMode ? '#2C2C2C' : '#E8F5E9' }]}>
+          <Ionicons name="time-outline" size={16} color={timeLeft < 300 ? '#fff' : primaryColor} />
+          <Text style={[styles.timerText, timeLeft < 300 ? styles.timerTextWarning : { color: primaryColor }]}>
             {formatTime(timeLeft)}
           </Text>
         </View>
@@ -252,60 +257,78 @@ export default function ReadingDetailScreen({ route, navigation }) {
         {passages.map((passage, pIdx) => (
           <View key={pIdx} style={styles.passageSection}>
             <View style={styles.passageHeader}>
-              <View style={styles.passageTag}>
-                <Ionicons name="document-text" size={13} color="#2E7D32" />
-                <Text style={styles.passageTagText}>
+              <View style={[styles.passageTag, { backgroundColor: isDarkMode ? 'rgba(46, 125, 50, 0.15)' : '#E8F5E9' }]}>
+                <Ionicons name="document-text" size={13} color={primaryColor} />
+                <Text style={[styles.passageTagText, { color: primaryColor }]}>
                   Bài đọc {passage.passageNumber}/{passages.length}
                 </Text>
               </View>
-              <Text style={styles.passageType}>{passage.passageType}</Text>
+              <Text style={[styles.passageType, { color: theme.textSecondary }]}>{passage.passageType}</Text>
             </View>
 
-            <View style={styles.passageCard}>
-              {passage.title ? <Text style={styles.passageTitle}>{passage.title}</Text> : null}
-              <Text style={styles.passageContent}>
+            <View style={[styles.passageCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              {passage.title ? <Text style={[styles.passageTitle, { color: theme.text }]}>{passage.title}</Text> : null}
+              <Text style={[styles.passageContent, { color: theme.text }]}>
                 {expandedPassage === pIdx
                   ? passage.content
                   : `${String(passage.content || '').slice(0, 700)}${String(passage.content || '').length > 700 ? '...' : ''}`}
               </Text>
               {expandedPassage !== pIdx && String(passage.content || '').length > 700 ? (
                 <TouchableOpacity style={styles.expandBtn} onPress={() => setExpandedPassage(pIdx)}>
-                  <Text style={styles.expandBtnText}>Xem toàn bộ passage</Text>
+                  <Text style={[styles.expandBtnText, { color: primaryColor }]}>Xem toàn bộ passage</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
 
             <View style={styles.questionsHeader}>
-              <Text style={styles.questionsTitle}>
+              <Text style={[styles.questionsTitle, { color: theme.text }]}>
                 Câu hỏi ({passage.questions?.[0]?.questionNumber}–{passage.questions?.[passage.questions.length - 1]?.questionNumber})
               </Text>
-              <Text style={styles.questionsAnswered}>
+              <Text style={[styles.questionsAnswered, { color: primaryColor }]}>
                 {(passage.questions || []).filter((q) => answers[q.questionNumber]).length}/{passage.questions?.length || 0} đã trả lời
               </Text>
             </View>
 
             {(passage.questions || []).map((q) => (
-              <View key={q.questionNumber} style={styles.questionCard}>
+              <View key={q.questionNumber} style={[styles.questionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={styles.questionHeader}>
-                  <View style={styles.questionNumBadge}>
-                    <Text style={styles.questionNumText}>{q.questionNumber}</Text>
+                  <View style={[styles.questionNumBadge, { backgroundColor: primaryColor }]}>
+                    <Text style={[styles.questionNumText, { color: isDarkMode ? '#121212' : '#fff' }]}>{q.questionNumber}</Text>
                   </View>
-                  <Text style={styles.questionText}>{q.questionText}</Text>
+                  <Text style={[styles.questionText, { color: theme.text }]}>{q.questionText}</Text>
                 </View>
 
                 {Object.entries(q.options || {}).map(([key, val]) => {
                   const isSelected = answers[q.questionNumber] === key;
+                  const optBg = isSelected
+                    ? (isDarkMode ? 'rgba(46, 125, 50, 0.15)' : '#E8F5E9')
+                    : theme.inputBg;
+                  const optBorder = isSelected
+                    ? primaryColor
+                    : theme.inputBorder;
+                  const optTextColor = isSelected
+                    ? primaryColor
+                    : theme.text;
+
                   return (
                     <TouchableOpacity
                       key={key}
-                      style={[styles.option, isSelected && styles.optionSelected]}
+                      style={[styles.option, { backgroundColor: optBg, borderColor: optBorder }]}
                       onPress={() => handleAnswer(q.questionNumber, key)}
                       activeOpacity={0.7}
                     >
-                      <View style={[styles.optionRadio, isSelected && styles.optionRadioSelected]}>
-                        {isSelected ? <View style={styles.optionRadioDot} /> : null}
+                      <View style={[
+                        styles.optionRadio,
+                        isSelected && { borderColor: primaryColor },
+                        !isSelected && { borderColor: isDarkMode ? '#444' : '#B0BEC5' }
+                      ]}>
+                        {isSelected ? <View style={[styles.optionRadioDot, { backgroundColor: primaryColor }]} /> : null}
                       </View>
-                      <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                      <Text style={[
+                        styles.optionText,
+                        { color: optTextColor },
+                        isSelected && { fontWeight: '700' }
+                      ]}>
                         {key}. {val}
                       </Text>
                     </TouchableOpacity>
@@ -319,11 +342,11 @@ export default function ReadingDetailScreen({ route, navigation }) {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerCount}>Đã trả lời: {answeredCount}/{totalQ} câu</Text>
-        <TouchableOpacity style={styles.submitBtn} onPress={() => handleSubmit(false)} activeOpacity={0.85}>
-          <Ionicons name="lock-closed" size={18} color="#fff" />
-          <Text style={styles.submitBtnText}>Nộp bài</Text>
+      <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
+        <Text style={[styles.footerCount, { color: theme.textSecondary }]}>Đã trả lời: {answeredCount}/{totalQ} câu</Text>
+        <TouchableOpacity style={[styles.submitBtn, { backgroundColor: primaryColor }]} onPress={() => handleSubmit(false)} activeOpacity={0.85}>
+          <Ionicons name="lock-closed" size={18} color={isDarkMode ? '#121212' : '#fff'} />
+          <Text style={[styles.submitBtnText, { color: isDarkMode ? '#121212' : '#fff' }]}>Nộp bài</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

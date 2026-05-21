@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { uploadSpeaking, scoreSpeakingTest } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
 import { updateFullMockProgress } from '../../utils/fullMockTest';
+import { useTheme } from '../../context/ThemeContext';
 
 const MOCK_TASK = {
   title: 'Speaking 01 - Part 1',
@@ -51,6 +52,7 @@ const inferAudioFileMeta = (uri = '', fallbackBaseName = 'speaking-part') => {
 };
 
 export default function SpeakingScreen({ route, navigation }) {
+  const { isDarkMode, theme } = useTheme();
   const test = route.params?.test || { tasks: [MOCK_TASK] };
   const taskIndex = route.params?.taskIndex || 0;
   const resumeState = route.params?.resumeState || null;
@@ -397,58 +399,66 @@ export default function SpeakingScreen({ route, navigation }) {
 
   if (processing) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.processingContainer}>
-          <ActivityIndicator size="large" color="#6A1B9A" />
-          <Text style={styles.processingText}>{processingStep}</Text>
-          <Text style={styles.processingSubText}>Vui lòng chờ trong giây lát...</Text>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <View style={[styles.processingContainer, { backgroundColor: isDarkMode ? theme.background : '#F3E5F5' }]}>
+          <ActivityIndicator size="large" color={isDarkMode ? '#E040FB' : '#6A1B9A'} />
+          <Text style={[styles.processingText, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>{processingStep}</Text>
+          <Text style={[styles.processingSubText, { color: isDarkMode ? '#D1C4E9' : '#9575CD' }]}>Vui lòng chờ trong giây lát...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? theme.background : '#fff'} />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={handleHeaderLeftPress}>
-          <Ionicons name={hasPreviousTask ? 'arrow-back' : 'close'} size={20} color="#1A1A2E" />
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#333' : '#F5F5F5' }]} onPress={handleHeaderLeftPress}>
+          <Ionicons name={hasPreviousTask ? 'arrow-back' : 'close'} size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ghi âm</Text>
-        <View style={styles.timerBadge}>
-          <Ionicons name="time-outline" size={14} color="#6A1B9A" />
-          <Text style={styles.timerBadgeText}>{formatTime(recordingTime)} / {formatTime(maxTime)}</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Ghi âm</Text>
+        <View style={[styles.timerBadge, { backgroundColor: isDarkMode ? '#2D1F35' : '#F3E5F5' }]}>
+          <Ionicons name="time-outline" size={14} color={isDarkMode ? '#E040FB' : '#6A1B9A'} />
+          <Text style={[styles.timerBadgeText, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>{formatTime(recordingTime)} / {formatTime(maxTime)}</Text>
         </View>
       </View>
 
-      <View style={styles.promptCard}>
-        <Text style={styles.promptLabel}>{currentTask.partType || `Part ${taskIndex + 1}`}</Text>
-        <Text style={styles.promptText}>{currentTask.prompt || MOCK_TASK.prompt}</Text>
+      <View style={[
+        styles.promptCard,
+        {
+          backgroundColor: theme.card,
+          borderLeftColor: isDarkMode ? '#E040FB' : '#6A1B9A',
+          borderColor: theme.border,
+          borderWidth: isDarkMode ? 1 : 0
+        }
+      ]}>
+        <Text style={[styles.promptLabel, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>{currentTask.partType || `Part ${taskIndex + 1}`}</Text>
+        <Text style={[styles.promptText, { color: theme.text }]}>{currentTask.prompt || MOCK_TASK.prompt}</Text>
       </View>
 
       {currentDraft?.localUri ? (
-        <View style={styles.savedCard}>
+        <View style={[styles.savedCard, { backgroundColor: isDarkMode ? '#2D1F35' : '#F3E5F5' }]}>
           <View style={styles.savedTop}>
             <View>
-              <Text style={styles.savedTitle}>Đã có bản ghi cho part này</Text>
-              <Text style={styles.savedMeta}>Thời lượng: {formatTime(currentDraft.audioDuration || 0)}</Text>
+              <Text style={[styles.savedTitle, { color: isDarkMode ? '#E040FB' : '#4A148C' }]}>Đã có bản ghi cho part này</Text>
+              <Text style={[styles.savedMeta, { color: isDarkMode ? '#D1C4E9' : '#7B1FA2' }]}>Thời lượng: {formatTime(currentDraft.audioDuration || 0)}</Text>
             </View>
-            <TouchableOpacity style={styles.playBtn} onPress={togglePlayback}>
+            <TouchableOpacity style={[styles.playBtn, { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]} onPress={togglePlayback}>
               <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color="#fff" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.savedActions}>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={startRecording}>
-              <Ionicons name="refresh" size={16} color="#6A1B9A" />
-              <Text style={styles.secondaryBtnText}>Ghi âm lại</Text>
+            <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: isDarkMode ? '#333' : '#fff', borderColor: isDarkMode ? '#444' : '#D1C4E9' }]} onPress={startRecording}>
+              <Ionicons name="refresh" size={16} color={isDarkMode ? '#E040FB' : '#6A1B9A'} />
+              <Text style={[styles.secondaryBtnText, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>Ghi âm lại</Text>
             </TouchableOpacity>
 
             {!isLastTask ? (
-              <TouchableOpacity style={styles.secondaryBtn} onPress={handleGoToNextTask}>
-                <Ionicons name="arrow-forward" size={16} color="#6A1B9A" />
-                <Text style={styles.secondaryBtnText}>Sang part tiếp</Text>
+              <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: isDarkMode ? '#333' : '#fff', borderColor: isDarkMode ? '#444' : '#D1C4E9' }]} onPress={handleGoToNextTask}>
+                <Ionicons name="arrow-forward" size={16} color={isDarkMode ? '#E040FB' : '#6A1B9A'} />
+                <Text style={[styles.secondaryBtnText, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>Sang part tiếp</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -456,7 +466,7 @@ export default function SpeakingScreen({ route, navigation }) {
       ) : null}
 
       <View style={styles.recordArea}>
-        <Animated.View style={[styles.micBtn, { transform: [{ scale: micPulseAnim }] }]}>
+        <Animated.View style={[styles.micBtn, { transform: [{ scale: micPulseAnim }], backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>
           <Ionicons name="mic" size={40} color="#fff" />
         </Animated.View>
 
@@ -468,13 +478,14 @@ export default function SpeakingScreen({ route, navigation }) {
                 styles.wavebar,
                 {
                   height: anim.interpolate({ inputRange: [0, 1], outputRange: [6, 40] }),
+                  backgroundColor: isDarkMode ? '#E040FB' : '#9C27B0',
                 },
               ]}
             />
           ))}
         </View>
 
-        <Text style={styles.recordHint}>
+        <Text style={[styles.recordHint, { color: theme.textSecondary }]}>
           {isRecording
             ? 'Nhấn để dừng và lưu bản ghi'
             : currentDraft?.localUri
@@ -483,9 +494,12 @@ export default function SpeakingScreen({ route, navigation }) {
         </Text>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
         <TouchableOpacity
-          style={[styles.actionBtn, isRecording ? styles.actionBtnStop : styles.actionBtnStart]}
+          style={[
+            styles.actionBtn,
+            isRecording ? styles.actionBtnStop : [styles.actionBtnStart, { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]
+          ]}
           onPress={isRecording ? stopAndSaveRecording : startRecording}
         >
           <Ionicons name={isRecording ? 'save' : currentDraft?.localUri ? 'refresh' : 'mic'} size={22} color="#fff" />
@@ -500,12 +514,16 @@ export default function SpeakingScreen({ route, navigation }) {
 
         {isLastTask ? (
           <TouchableOpacity
-            style={[styles.submitBtn, !allPartsRecorded && styles.submitBtnDisabled]}
+            style={[
+              styles.submitBtn,
+              isDarkMode && { backgroundColor: '#388E3C' },
+              !allPartsRecorded && (isDarkMode ? { backgroundColor: '#333' } : styles.submitBtnDisabled)
+            ]}
             onPress={handleSubmitFullTest}
             disabled={!allPartsRecorded}
           >
-            <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={styles.submitBtnText}>Nộp & chấm cả bài</Text>
+            <Ionicons name="checkmark-circle" size={20} color={!allPartsRecorded && isDarkMode ? '#666' : '#fff'} />
+            <Text style={[styles.submitBtnText, !allPartsRecorded && isDarkMode && { color: '#666' }]}>Nộp & chấm cả bài</Text>
           </TouchableOpacity>
         ) : null}
       </View>

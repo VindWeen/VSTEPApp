@@ -10,8 +10,10 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 function ScoreSegments({ value, max = 5, color = '#E65100' }) {
+  const { theme, isDarkMode } = useTheme();
   const segments = 10;
   const filled = Math.round((value / max) * segments);
   return (
@@ -21,7 +23,9 @@ function ScoreSegments({ value, max = 5, color = '#E65100' }) {
           key={i}
           style={[
             styles.seg,
-            i < filled ? { ...styles.segFilled, backgroundColor: color } : styles.segEmpty,
+            i < filled
+              ? { backgroundColor: color }
+              : { backgroundColor: isDarkMode ? '#333333' : '#F0F0F0' },
           ]}
         />
       ))}
@@ -30,11 +34,13 @@ function ScoreSegments({ value, max = 5, color = '#E65100' }) {
 }
 
 function CriteriaCard({ label, value }) {
-  const color =
-    value >= 4.5 ? '#1565C0' : value >= 3.5 ? '#2E7D32' : value >= 2.5 ? '#E65100' : '#D32F2F';
+  const { theme, isDarkMode } = useTheme();
+  const color = isDarkMode
+    ? (value >= 4.5 ? '#64B5F6' : value >= 3.5 ? '#81C784' : value >= 2.5 ? '#FFB74D' : '#E57373')
+    : (value >= 4.5 ? '#1565C0' : value >= 3.5 ? '#2E7D32' : value >= 2.5 ? '#E65100' : '#D32F2F');
   return (
-    <View style={styles.criteriaCard}>
-      <Text style={styles.criteriaLabel}>{label}</Text>
+    <View style={[styles.criteriaCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <Text style={[styles.criteriaLabel, { color: theme.textSecondary }]}>{label}</Text>
       <Text style={[styles.criteriaValue, { color }]}>{value?.toFixed(1) ?? '-'}</Text>
       <ScoreSegments value={value || 0} color={color} />
     </View>
@@ -59,9 +65,16 @@ const normalizeList = (items = []) =>
     .filter(Boolean);
 
 function FeedbackList({ title, items, icon, tone = 'default' }) {
+  const { theme, isDarkMode } = useTheme();
   const normalizedItems = useMemo(() => normalizeList(items), [items]);
 
   if (!normalizedItems.length) return null;
+
+  const iconColor = tone === 'positive'
+    ? (isDarkMode ? '#81C784' : '#2E7D32')
+    : tone === 'warning'
+    ? (isDarkMode ? '#FFB74D' : '#EF6C00')
+    : (isDarkMode ? '#FF9800' : '#E65100');
 
   return (
     <View style={styles.feedbackGroup}>
@@ -69,14 +82,14 @@ function FeedbackList({ title, items, icon, tone = 'default' }) {
         <Ionicons
           name={icon}
           size={16}
-          color={tone === 'positive' ? '#2E7D32' : tone === 'warning' ? '#EF6C00' : '#E65100'}
+          color={iconColor}
         />
-        <Text style={styles.feedbackGroupTitle}>{title}</Text>
+        <Text style={[styles.feedbackGroupTitle, { color: theme.text }]}>{title}</Text>
       </View>
       {normalizedItems.map((item, index) => (
         <View key={`${title}-${index}`} style={styles.bulletRow}>
-          <Text style={styles.bulletMark}>•</Text>
-          <Text style={styles.bulletText}>{item}</Text>
+          <Text style={[styles.bulletMark, { color: isDarkMode ? '#FF9800' : '#E65100' }]}>•</Text>
+          <Text style={[styles.bulletText, { color: theme.text }]}>{item}</Text>
         </View>
       ))}
     </View>
@@ -84,15 +97,17 @@ function FeedbackList({ title, items, icon, tone = 'default' }) {
 }
 
 function TaskCriteriaRow({ label, value }) {
+  const { theme } = useTheme();
   return (
-    <View style={styles.taskCriteriaRow}>
-      <Text style={styles.taskCriteriaLabel}>{label}</Text>
-      <Text style={styles.taskCriteriaValue}>{typeof value === 'number' ? value.toFixed(1) : '-'}</Text>
+    <View style={[styles.taskCriteriaRow, { borderTopColor: theme.border }]}>
+      <Text style={[styles.taskCriteriaLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.taskCriteriaValue, { color: theme.text }]}>{typeof value === 'number' ? value.toFixed(1) : '-'}</Text>
     </View>
   );
 }
 
 export default function WritingResultScreen({ route, navigation }) {
+  const { theme, isDarkMode } = useTheme();
   const { result, test, draftResponses = [], fromHistory, fromFullMock } = route.params;
   const [expandedTaskKey, setExpandedTaskKey] = useState(null);
 
@@ -129,40 +144,43 @@ export default function WritingResultScreen({ route, navigation }) {
     }
 
     if (fromHistory) {
+      navigation.popToTop();
       navigation.getParent()?.navigate('Profile', { screen: 'History' });
       return;
     }
 
-    navigation.navigate('WritingList');
+    navigation.popToTop();
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+  const orangeAccent = isDarkMode ? '#FF9800' : '#E65100';
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={navigateAfterReview}>
-          <Ionicons name="close" size={20} color="#1A1A2E" />
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.card} />
+
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F5F5F5' }]} onPress={navigateAfterReview}>
+          <Ionicons name="close" size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kết quả bài Writing</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Kết quả bài Writing</Text>
         <View style={styles.shareBtn} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.scoreSection}>
-          <View style={styles.bandCircle}>
-            <Text style={styles.bandNum}>{band?.toFixed(1) ?? '-'}</Text>
-          <Text style={styles.bandLabel}>BAND SCORE</Text>
+        <View style={[styles.scoreSection, { backgroundColor: theme.card, marginBottom: 16 }]}>
+          <View style={[styles.bandCircle, { borderColor: orangeAccent, backgroundColor: isDarkMode ? '#2C1B12' : '#FFF8F5' }]}>
+            <Text style={[styles.bandNum, { color: orangeAccent }]}>{band?.toFixed(1) ?? '-'}</Text>
+            <Text style={[styles.bandLabel, { color: theme.textSecondary }]}>BAND SCORE</Text>
           </View>
-          <Text style={styles.wordCountText}>
+          <Text style={[styles.wordCountText, { color: theme.textSecondary }]}>
             {test?.title || result?.testTitle || 'Writing Test'} • {totalWordCount} từ
           </Text>
         </View>
 
         {!!taskResults.length && (
-          <View style={styles.taskSummaryCard}>
-            <Text style={styles.taskSummaryTitle}>Tổng hợp theo task</Text>
-            <Text style={styles.taskSummarySubtitle}>
+          <View style={[styles.taskSummaryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.taskSummaryTitle, { color: theme.text }]}>Tổng hợp theo task</Text>
+            <Text style={[styles.taskSummarySubtitle, { color: theme.textSecondary }]}>
               Mở từng task để xem lại bài viết và điểm chi tiết.
             </Text>
 
@@ -172,20 +190,20 @@ export default function WritingResultScreen({ route, navigation }) {
               const taskFeedback = task.aiFeedback || {};
 
               return (
-                <View key={taskKey} style={styles.taskItem}>
+                <View key={taskKey} style={[styles.taskItem, { borderTopColor: theme.border }]}>
                   <TouchableOpacity style={styles.taskSummaryRow} onPress={() => toggleTask(taskKey)}>
                     <View style={styles.taskSummaryLeft}>
-                      <Text style={styles.taskSummaryName}>{task.title || task.taskType}</Text>
-                      <Text style={styles.taskSummaryMeta}>{task.wordCount || 0} từ</Text>
+                      <Text style={[styles.taskSummaryName, { color: theme.text }]}>{task.title || task.taskType}</Text>
+                      <Text style={[styles.taskSummaryMeta, { color: theme.textSecondary }]}>{task.wordCount || 0} từ</Text>
                     </View>
                     <View style={styles.taskSummaryRight}>
-                      <Text style={styles.taskSummaryBand}>
+                      <Text style={[styles.taskSummaryBand, { color: orangeAccent }]}>
                         Band {taskFeedback.band?.toFixed(1) ?? '-'}
                       </Text>
                       <Ionicons
                         name={expanded ? 'chevron-up' : 'chevron-down'}
                         size={18}
-                        color="#E65100"
+                        color={orangeAccent}
                       />
                     </View>
                   </TouchableOpacity>
@@ -193,19 +211,19 @@ export default function WritingResultScreen({ route, navigation }) {
                   {expanded ? (
                     <View style={styles.taskDetail}>
                       {task.prompt ? (
-                        <View style={styles.detailBlock}>
-                          <Text style={styles.detailLabel}>Đề bài</Text>
-                          <Text style={styles.detailText}>{task.prompt}</Text>
+                        <View style={[styles.detailBlock, { backgroundColor: isDarkMode ? '#252525' : '#FAFAFA' }]}>
+                          <Text style={[styles.detailLabel, { color: orangeAccent }]}>Đề bài</Text>
+                          <Text style={[styles.detailText, { color: theme.text }]}>{task.prompt}</Text>
                         </View>
                       ) : null}
 
-                      <View style={styles.detailBlock}>
-                        <Text style={styles.detailLabel}>Bài viết của bạn</Text>
-                        <Text style={styles.essayText}>{task.essay || 'Chưa có nội dung.'}</Text>
+                      <View style={[styles.detailBlock, { backgroundColor: isDarkMode ? '#252525' : '#FAFAFA' }]}>
+                        <Text style={[styles.detailLabel, { color: orangeAccent }]}>Bài viết của bạn</Text>
+                        <Text style={[styles.essayText, { color: theme.text }]}>{task.essay || 'Chưa có nội dung.'}</Text>
                       </View>
 
-                      <View style={styles.taskCriteriaCard}>
-                        <Text style={styles.detailLabel}>Điểm từng tiêu chí</Text>
+                      <View style={[styles.taskCriteriaCard, { backgroundColor: isDarkMode ? '#252525' : '#FAFAFA' }]}>
+                        <Text style={[styles.detailLabel, { color: orangeAccent }]}>Điểm từng tiêu chí</Text>
                         <TaskCriteriaRow
                           label="Task Achievement"
                           value={taskFeedback.taskAchievement}
@@ -247,8 +265,8 @@ export default function WritingResultScreen({ route, navigation }) {
           <CriteriaCard label="GRAMMAR" value={grammar || 0} />
         </View>
 
-        <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackTitle}>Đánh giá tổng quan</Text>
+        <View style={[styles.feedbackCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.feedbackTitle, { color: theme.text }]}>Đánh giá tổng quan</Text>
           <FeedbackList
             title="Ưu điểm"
             items={strengths}
@@ -269,7 +287,7 @@ export default function WritingResultScreen({ route, navigation }) {
         </View>
 
         <TouchableOpacity
-          style={styles.primaryBtn}
+          style={[styles.primaryBtn, { backgroundColor: orangeAccent }]}
           onPress={navigateAfterReview}
         >
           <Text style={styles.primaryBtnText}>Về trang kỹ năng viết</Text>

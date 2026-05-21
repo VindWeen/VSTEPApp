@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getListeningTests,
   getReadingTests,
@@ -26,20 +27,21 @@ import {
   saveActiveFullMockSession,
 } from '../../utils/fullMockTest';
 
-const SKILLS = [
-  { key: 'listening', label: 'Nghe', icon: 'headset', color: '#1565C0' },
-  { key: 'reading', label: 'Đọc', icon: 'book', color: '#2E7D32' },
-  { key: 'writing', label: 'Viết', icon: 'create', color: '#E65100' },
-  { key: 'speaking', label: 'Nói', icon: 'mic', color: '#6A1B9A' },
-];
-
 export default function MockTestIntroScreen({ navigation }) {
+  const { theme, isDarkMode } = useTheme();
   const [loading, setLoading] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
 
   React.useEffect(() => {
     loadActiveFullMockSession().then(setActiveSession).catch(() => setActiveSession(null));
   }, []);
+
+  const SKILLS = [
+    { key: 'listening', label: 'Nghe', icon: 'headset', color: isDarkMode ? '#64B5F6' : '#1565C0' },
+    { key: 'reading', label: 'Đọc', icon: 'book', color: isDarkMode ? '#81C784' : '#2E7D32' },
+    { key: 'writing', label: 'Viết', icon: 'create', color: isDarkMode ? '#FFB74D' : '#E65100' },
+    { key: 'speaking', label: 'Nói', icon: 'mic', color: isDarkMode ? '#E040FB' : '#6A1B9A' },
+  ];
 
   const handleContinue = () => {
     if (!activeSession) return;
@@ -106,35 +108,43 @@ export default function MockTestIntroScreen({ navigation }) {
     );
   };
 
+  const bgColor = isDarkMode ? theme.background : '#0F4C81';
+  const kickerColor = isDarkMode ? '#00E5FF' : '#B9D9F3';
+  const subtitleColor = isDarkMode ? theme.textSecondary : '#D7EAF7';
+  const cardBg = isDarkMode ? theme.card : '#fff';
+  const cardBorder = isDarkMode ? theme.border : '#F0F2F5';
+  const noteBg = isDarkMode ? '#1E2C3A' : '#E7F1F8';
+  const noteTextCol = isDarkMode ? '#64B5F6' : '#245C86';
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F4C81" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }]}>
+      <StatusBar barStyle="light-content" backgroundColor={bgColor} />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={[styles.backBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : 'rgba(255,255,255,0.16)' }]} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={20} color="#fff" />
         </TouchableOpacity>
 
         <View style={styles.hero}>
-          <Text style={styles.kicker}>THI THỬ TOÀN DIỆN</Text>
-          <Text style={styles.title}>Một bài thi đủ 4 kỹ năng theo thứ tự Nghe, Đọc, Nói, Viết.</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.kicker, { color: kickerColor }]}>THI THỬ TOÀN DIỆN</Text>
+          <Text style={[styles.title, { color: isDarkMode ? theme.text : '#fff' }]}>Một bài thi đủ 4 kỹ năng theo thứ tự Nghe, Đọc, Nói, Viết.</Text>
+          <Text style={[styles.subtitle, { color: subtitleColor }]}>
             Mỗi lần bắt đầu hệ thống sẽ chọn ngẫu nhiên 1 đề cho từng kỹ năng. Bạn có thể thoát ra
             và vào lại để làm tiếp, nhưng kỹ năng đã hoàn thành sẽ bị khóa và không sửa lại được.
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Cấu trúc bài thi</Text>
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>Cấu trúc bài thi</Text>
           {SKILLS.map((skill, index) => (
             <View key={skill.key} style={styles.skillRow}>
               <View style={[styles.skillIcon, { backgroundColor: `${skill.color}18` }]}>
                 <Ionicons name={skill.icon} size={18} color={skill.color} />
               </View>
               <View style={styles.skillInfo}>
-                <Text style={styles.skillLabel}>
+                <Text style={[styles.skillLabel, { color: theme.text }]}>
                   {index + 1}. {skill.label}
                 </Text>
-                <Text style={styles.skillDesc}>
+                <Text style={[styles.skillDesc, { color: theme.textSecondary }]}>
                   Hoàn thành xong mới mở phần tiếp theo.
                 </Text>
               </View>
@@ -142,23 +152,23 @@ export default function MockTestIntroScreen({ navigation }) {
           ))}
         </View>
 
-        <View style={styles.noteCard}>
-          <Ionicons name="information-circle" size={18} color="#0F4C81" />
-          <Text style={styles.noteText}>
+        <View style={[styles.noteCard, { backgroundColor: noteBg }]}>
+          <Ionicons name="information-circle" size={18} color={noteTextCol} />
+          <Text style={[styles.noteText, { color: noteTextCol }]}>
             Sau khi hoàn tất đủ 4 kỹ năng, hệ thống mới tiến hành chấm điểm từng phần và tính
             overall band cho toàn bài.
           </Text>
         </View>
 
         {activeSession ? (
-          <View style={styles.resumeCard}>
-            <Text style={styles.resumeTitle}>Có bài thi đang làm dở</Text>
-            <Text style={styles.resumeText}>
+          <View style={[styles.resumeCard, { backgroundColor: isDarkMode ? theme.card : 'rgba(255,255,255,0.14)', borderColor: isDarkMode ? theme.border : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
+            <Text style={[styles.resumeTitle, { color: isDarkMode ? theme.text : '#fff' }]}>Có bài thi đang làm dở</Text>
+            <Text style={[styles.resumeText, { color: isDarkMode ? theme.textSecondary : '#D7EAF7' }]}>
               Bạn có thể tiếp tục từ kỹ năng chưa hoàn thành tiếp theo hoặc tạo một đề ngẫu nhiên
               mới.
             </Text>
-            <TouchableOpacity style={styles.resumeBtn} onPress={handleContinue}>
-              <Text style={styles.resumeBtnText}>Tiếp tục bài đang làm</Text>
+            <TouchableOpacity style={[styles.resumeBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : 'rgba(255,255,255,0.16)' }]} onPress={handleContinue}>
+              <Text style={[styles.resumeBtnText, { color: isDarkMode ? theme.text : '#fff' }]}>Tiếp tục bài đang làm</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -169,11 +179,11 @@ export default function MockTestIntroScreen({ navigation }) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#0F4C81" />
+            <ActivityIndicator color={isDarkMode ? '#121212' : '#0F4C81'} />
           ) : (
             <>
-              <Ionicons name="flash" size={18} color="#0F4C81" />
-              <Text style={styles.primaryBtnText}>
+              <Ionicons name="flash" size={18} color={isDarkMode ? '#121212' : '#0F4C81'} />
+              <Text style={[styles.primaryBtnText, { color: isDarkMode ? '#121212' : '#0F4C81' }]}>
                 {activeSession ? 'Tiếp tục hoặc tạo đề mới' : 'Bắt đầu thi thử'}
               </Text>
             </>

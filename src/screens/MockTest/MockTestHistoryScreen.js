@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadFullMockHistory } from '../../utils/fullMockTest';
+import { useTheme } from '../../context/ThemeContext';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -25,6 +26,7 @@ const formatDateTime = (value) => {
 
 export default function MockTestHistoryScreen({ navigation }) {
   const [items, setItems] = useState([]);
+  const { theme, isDarkMode } = useTheme();
 
   useFocusEffect(
     useCallback(() => {
@@ -33,13 +35,13 @@ export default function MockTestHistoryScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={20} color="#1A1A2E" />
+        <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.card }]} onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Lần thi gần nhất</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Lần thi gần nhất</Text>
         <View style={styles.spacer} />
       </View>
 
@@ -49,24 +51,24 @@ export default function MockTestHistoryScreen({ navigation }) {
         contentContainerStyle={styles.list}
         renderItem={({ item, index }) => (
           <TouchableOpacity
-            style={styles.card}
+            style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => navigation.navigate('MockTestResult', { result: item })}
           >
             <View style={styles.cardTop}>
-              <Text style={styles.cardTitle}>Mock Test #{String(items.length - index).padStart(2, '0')}</Text>
-              <Text style={styles.band}>{item.overallBand?.toFixed(1) || '0.0'}</Text>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>Mock Test #{String(items.length - index).padStart(2, '0')}</Text>
+              <Text style={[styles.band, { color: isDarkMode ? '#64B5F6' : '#0F4C81' }]}>{item.overallBand?.toFixed(1) || '0.0'}</Text>
             </View>
-            <Text style={styles.meta}>{formatDateTime(item.completedAt)}</Text>
+            <Text style={[styles.meta, { color: theme.textSecondary }]}>{formatDateTime(item.completedAt)}</Text>
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Xem chi tiết 4 kỹ năng</Text>
-              <Ionicons name="chevron-forward" size={16} color="#0F4C81" />
+              <Text style={[styles.footerText, { color: isDarkMode ? '#64B5F6' : '#0F4C81' }]}>Xem chi tiết 4 kỹ năng</Text>
+              <Ionicons name="chevron-forward" size={16} color={isDarkMode ? '#64B5F6' : '#0F4C81'} />
             </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Ionicons name="albums-outline" size={52} color="#B0BEC5" />
-            <Text style={styles.emptyText}>Chưa có bài thi 4 kỹ năng nào</Text>
+            <Ionicons name="albums-outline" size={52} color={theme.placeholder} />
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Chưa có bài thi 4 kỹ năng nào</Text>
           </View>
         }
       />

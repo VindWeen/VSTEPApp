@@ -1,22 +1,104 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, StatusBar, Platform,
+  StyleSheet, SafeAreaView, StatusBar, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../../context/ThemeContext';
+import {
+  getMyResults,
+  getWritingHistory,
+  getSpeakingHistory,
+} from '../../services/api';
+import {
+  calculateObjectiveBand,
+  convertFiveScaleToNineBand,
+  loadFullMockHistory,
+} from '../../utils/fullMockTest';
 
-const SKILL_BARS = [
-  { label: 'Nghe', icon: 'headset',  color: '#1565C0', bgColor: '#E3F2FD', pct: 75 },
-  { label: 'Đọc',  icon: 'book',     color: '#2E7D32', bgColor: '#E8F5E9', pct: 60 },
-  { label: 'Viết', icon: 'create',   color: '#E65100', bgColor: '#FBE9E7', pct: 45 },
-  { label: 'Nói',  icon: 'mic',      color: '#6A1B9A', bgColor: '#F3E5F5', pct: 30 },
-];
+import Svg, { Circle, Line, Polygon } from 'react-native-svg';
+
+const getDefaultBand = (level) => {
+  switch (level?.toUpperCase()) {
+    case 'A2': return 3.0;
+    case 'B1': return 4.5;
+    case 'B2': return 6.0;
+    case 'C1': return 7.5;
+    default: return 6.0;
+  }
+};
+
+function RadarChart({ reading = 0, listening = 0, writing = 0, speaking = 0, isDarkMode, theme }) {
+  const maxR = 70;
+  const centerX = 120;
+  const centerY = 100;
+
+  const rR = (reading / 9) * maxR;
+  const rL = (listening / 9) * maxR;
+  const rS = (speaking / 9) * maxR;
+  const rW = (writing / 9) * maxR;
+
+  return (
+    <View style={styles.radarContainer}>
+      <Svg width="240" height="200" style={StyleSheet.absoluteFill}>
+        {/* Concentric grid circles */}
+        <Circle cx={centerX} cy={centerY} r="23.3" stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" fill="none" />
+        <Circle cx={centerX} cy={centerY} r="46.6" stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" fill="none" />
+        <Circle cx={centerX} cy={centerY} r="70" stroke={isDarkMode ? '#444444' : '#CBD5E1'} strokeWidth="1" fill="none" />
+
+        {/* Grid axis lines */}
+        <Line x1={centerX - 70} y1={centerY} x2={centerX + 70} y2={centerY} stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" />
+        <Line x1={centerX} y1={centerY - 70} x2={centerX} y2={centerY + 70} stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" />
+
+        {/* Shaded/Filled Polygon area */}
+        <Polygon
+          points={`${centerX},${centerY - rR} ${centerX + rL},${centerY} ${centerX},${centerY + rS} ${centerX - rW},${centerY}`}
+          fill={isDarkMode ? 'rgba(33, 150, 243, 0.2)' : 'rgba(21, 101, 192, 0.25)'}
+          stroke={isDarkMode ? '#2196F3' : '#1565C0'}
+          strokeWidth="2"
+        />
+
+        {/* Glowing data dots */}
+        <Circle cx={centerX} cy={centerY - rR} r="6.5" fill={isDarkMode ? '#2196F3' : '#1565C0'} opacity={0.3} />
+        <Circle cx={centerX} cy={centerY - rR} r="4" fill={isDarkMode ? '#2196F3' : '#1565C0'} stroke={isDarkMode ? '#1E1E1E' : '#ffffff'} strokeWidth="1.5" />
+
+        <Circle cx={centerX + rL} cy={centerY} r="6.5" fill={isDarkMode ? '#2196F3' : '#1565C0'} opacity={0.3} />
+        <Circle cx={centerX + rL} cy={centerY} r="4" fill={isDarkMode ? '#2196F3' : '#1565C0'} stroke={isDarkMode ? '#1E1E1E' : '#ffffff'} strokeWidth="1.5" />
+
+        <Circle cx={centerX} cy={centerY + rS} r="6.5" fill={isDarkMode ? '#2196F3' : '#1565C0'} opacity={0.3} />
+        <Circle cx={centerX} cy={centerY + rS} r="4" fill={isDarkMode ? '#2196F3' : '#1565C0'} stroke={isDarkMode ? '#1E1E1E' : '#ffffff'} strokeWidth="1.5" />
+
+        <Circle cx={centerX - rW} cy={centerY} r="6.5" fill={isDarkMode ? '#2196F3' : '#1565C0'} opacity={0.3} />
+        <Circle cx={centerX - rW} cy={centerY} r="4" fill={isDarkMode ? '#2196F3' : '#1565C0'} stroke={isDarkMode ? '#1E1E1E' : '#ffffff'} strokeWidth="1.5" />
+      </Svg>
+
+      {/* Centered Labels */}
+      <Text style={[styles.radarLabel, { top: 6, left: 0, right: 0, textAlign: 'center', color: theme.textSecondary }]}>
+        Đọc
+      </Text>
+      <Text style={[styles.radarLabel, { bottom: 6, left: 0, right: 0, textAlign: 'center', color: theme.textSecondary }]}>
+        Nói
+      </Text>
+      <Text style={[styles.radarLabel, { top: 92, right: 2, color: theme.textSecondary }]}>
+        Nghe
+      </Text>
+      <Text style={[styles.radarLabel, { top: 92, left: 2, color: theme.textSecondary }]}>
+        Viết
+      </Text>
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const { user } = useAuth();
   const navigation = useNavigation();
+  const { isDarkMode, theme } = useTheme();
+
+  const [loading, setLoading] = useState(true);
+  const [totalTests, setTotalTests] = useState(0);
+  const [averageBands, setAverageBands] = useState({ listening: 6.0, reading: 6.0, writing: 6.0, speaking: 6.0 });
 
   const name = user?.name || 'Nguyễn Văn Minh';
   const email = user?.email || 'minhnv@gmail.com';
@@ -24,33 +106,121 @@ export default function ProfileScreen() {
   const role = user?.role || 'user';
   const isAdmin = role === 'admin';
 
+  const fetchProfileData = useCallback(async () => {
+    try {
+      const [objectiveRes, writingRes, speakingRes, mockHistory] = await Promise.all([
+        getMyResults({ limit: 100 }),
+        getWritingHistory({ limit: 100 }),
+        getSpeakingHistory({ limit: 100 }),
+        loadFullMockHistory(),
+      ]);
+
+      const objCount = objectiveRes.data?.data?.length || 0;
+      const writeCount = writingRes.data?.data?.length || 0;
+      const speakCount = speakingRes.data?.data?.length || 0;
+      const mockCount = mockHistory?.length || 0;
+      setTotalTests(objCount + writeCount + speakCount + mockCount);
+
+      // Compute averages
+      const defaultVal = getDefaultBand(user?.level);
+      const listeningBands = [];
+      const readingBands = [];
+      const writingBands = [];
+      const speakingBands = [];
+
+      (objectiveRes.data?.data || []).forEach(item => {
+        if (item.skill === 'listening' && item.total > 0) {
+          listeningBands.push(calculateObjectiveBand('listening', item.score, item.total));
+        } else if (item.skill === 'reading' && item.total > 0) {
+          readingBands.push(calculateObjectiveBand('reading', item.score, item.total));
+        }
+      });
+
+      (writingRes.data?.data || []).forEach(item => {
+        const score = item.aiFeedback?.band ?? item.bandScore ?? item.estimatedBand;
+        if (score) {
+          writingBands.push(convertFiveScaleToNineBand(score));
+        }
+      });
+
+      (speakingRes.data?.data || []).forEach(item => {
+        const score = item.aiFeedback?.band ?? item.bandScore ?? item.estimatedBand;
+        if (score) {
+          speakingBands.push(convertFiveScaleToNineBand(score));
+        }
+      });
+
+      const mockHistoryData = mockHistory || [];
+      mockHistoryData.forEach(mock => {
+        if (mock.skills?.listening?.band) listeningBands.push(mock.skills.listening.band);
+        if (mock.skills?.reading?.band) readingBands.push(mock.skills.reading.band);
+        if (mock.skills?.writing?.band) writingBands.push(mock.skills.writing.band);
+        if (mock.skills?.speaking?.band) speakingBands.push(mock.skills.speaking.band);
+      });
+
+      const average = (arr) => arr.length ? arr.reduce((sum, val) => sum + val, 0) / arr.length : null;
+      const avgL = average(listeningBands) ?? defaultVal;
+      const avgR = average(readingBands) ?? defaultVal;
+      const avgW = average(writingBands) ?? defaultVal;
+      const avgS = average(speakingBands) ?? defaultVal;
+
+      setAverageBands({
+        listening: avgL,
+        reading: avgR,
+        writing: avgW,
+        speaking: avgS,
+      });
+    } catch (error) {
+      console.error('Lỗi tải dữ liệu profile:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.level]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fetchProfileData();
+    }, [fetchProfileData])
+  );
+
+  const avgLR = (averageBands.listening + averageBands.reading) / 2;
+  const avgWS = (averageBands.writing + averageBands.speaking) / 2;
+
+  const skillBars = [
+    { label: 'Nghe', icon: 'headset', color: '#1565C0', bgColor: '#E3F2FD', score: averageBands.listening },
+    { label: 'Đọc', icon: 'book', color: '#2E7D32', bgColor: '#E8F5E9', score: averageBands.reading },
+    { label: 'Viết', icon: 'create', color: '#E65100', bgColor: '#FBE9E7', score: averageBands.writing },
+    { label: 'Nói', icon: 'mic', color: '#6A1B9A', bgColor: '#F3E5F5', score: averageBands.speaking },
+  ];
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Hồ sơ</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Hồ sơ</Text>
         <TouchableOpacity
-          style={styles.settingsBtn}
+          style={[styles.settingsBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F0F0F0' }]}
           onPress={() => navigation.navigate('ProfileSettings')}
         >
-          <Ionicons name="settings-outline" size={22} color="#1A1A2E" />
+          <Ionicons name="settings-outline" size={22} color={theme.text} />
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         {/* User card */}
-        <View style={styles.userCard}>
-          <View style={styles.avatarBg}>
-            <Ionicons name="person" size={34} color="#1565C0" />
-            <View style={styles.avatarVerified}>
+        <View style={[styles.userCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.avatarBg, isDarkMode && { backgroundColor: '#1565C022' }]}>
+            <Ionicons name="person" size={34} color={isDarkMode ? '#2196F3' : '#1565C0'} />
+            <View style={[styles.avatarVerified, { borderColor: theme.card }]}>
               <Ionicons name="checkmark" size={10} color="#fff" />
             </View>
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{name}</Text>
+            <Text style={[styles.userName, { color: theme.text }]}>{name}</Text>
             <View style={styles.levelBadge}>
               <Text style={styles.levelText}>{level}</Text>
             </View>
@@ -59,39 +229,42 @@ export default function ProfileScreen() {
                 <Text style={styles.roleText}>ADMIN</Text>
               </View>
             ) : null}
-            <Text style={styles.userEmail}>{email}</Text>
+            <Text style={[styles.userEmail, { color: theme.textSecondary }]}>{email}</Text>
           </View>
-          <TouchableOpacity style={styles.editBtn}>
-            <Text style={styles.editBtnText}>Chỉnh sửa</Text>
+          <TouchableOpacity
+            style={[styles.editBtn, { borderColor: isDarkMode ? '#2196F3' : '#1565C0' }]}
+            onPress={() => navigation.navigate('ProfileSettings', { openEditProfile: true })}
+          >
+            <Text style={[styles.editBtnText, { color: isDarkMode ? '#2196F3' : '#1565C0' }]}>Chỉnh sửa</Text>
           </TouchableOpacity>
         </View>
 
         {/* Stats row */}
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statNum}>42</Text>
-            <Text style={styles.statLabel}>Bài đã{'\n'}làm</Text>
+            <Text style={[styles.statNum, { color: theme.text }]}>{loading ? '--' : totalTests}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Bài đã{'\n'}làm</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
           <View style={styles.statItem}>
-            <Ionicons name="flame" size={16} color="#E65100" />
-            <Text style={[styles.statNum, { color: '#E65100' }]}>15</Text>
-            <Text style={styles.statLabel}>ngày{'\n'}Streak</Text>
+            <Ionicons name="flame" size={16} color={isDarkMode ? '#FFB74D' : '#E65100'} />
+            <Text style={[styles.statNum, { color: isDarkMode ? '#FFB74D' : '#E65100' }]}>{user?.streak || 0}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>ngày{'\n'}Streak</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statNum}>75%</Text>
-            <Text style={styles.statLabel}>Nghe/{'\n'}Đọc</Text>
+            <Text style={[styles.statNum, { color: theme.text }]}>{loading ? '--' : avgLR.toFixed(1)}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Nghe/{'\n'}Đọc</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statNum}>3.8</Text>
-            <Text style={styles.statLabel}>Viết/{'\n'}Nói</Text>
+            <Text style={[styles.statNum, { color: theme.text }]}>{loading ? '--' : avgWS.toFixed(1)}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Viết/{'\n'}Nói</Text>
           </View>
         </View>
 
         {/* History Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.historyBtn}
           onPress={() => navigation.navigate('History')}
         >
@@ -102,57 +275,62 @@ export default function ProfileScreen() {
 
         {isAdmin ? (
           <TouchableOpacity
-            style={styles.adminBtn}
+            style={[styles.adminBtn, isDarkMode && { backgroundColor: '#3A2E0B', borderColor: '#5C4810', borderWidth: 1 }]}
             onPress={() => navigation.navigate('AdminDashboard')}
           >
-            <View style={styles.adminIconWrap}>
-              <Ionicons name="shield-checkmark" size={20} color="#102A43" />
+            <View style={[styles.adminIconWrap, isDarkMode && { backgroundColor: '#5C481033' }]}>
+              <Ionicons name="shield-checkmark" size={20} color={isDarkMode ? '#FFE082' : '#102A43'} />
             </View>
             <View style={styles.adminTextWrap}>
-              <Text style={styles.adminTitle}>Khu quản trị đề thi</Text>
-              <Text style={styles.adminSubtitle}>Tạo nhanh đề Listening, Reading, Writing và Speaking</Text>
+              <Text style={[styles.adminTitle, isDarkMode && { color: '#FFE082' }]}>Khu quản trị đề thi</Text>
+              <Text style={[styles.adminSubtitle, isDarkMode && { color: '#FFE082CC' }]}>Tạo nhanh đề Listening, Reading, Writing và Speaking</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#102A43" />
+            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#FFE082' : '#102A43'} />
           </TouchableOpacity>
         ) : null}
 
         {/* Skill progress */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tiến độ kỹ năng</Text>
-          {SKILL_BARS.map(s => (
-            <View key={s.label} style={styles.skillRow}>
-              <View style={[styles.skillIconBg, { backgroundColor: s.bgColor }]}>
-                <Ionicons name={s.icon} size={18} color={s.color} />
-              </View>
-              <View style={styles.skillBarArea}>
-                <View style={styles.skillLabelRow}>
-                  <Text style={styles.skillLabelText}>{s.label}</Text>
-                  <Text style={[styles.skillPct, { color: s.color }]}>{s.pct}%</Text>
+        <View style={[styles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Tiến độ kỹ năng</Text>
+          {skillBars.map(s => {
+            const pct = Math.round((s.score / 9.0) * 100);
+            return (
+              <View key={s.label} style={styles.skillRow}>
+                <View style={[styles.skillIconBg, { backgroundColor: isDarkMode ? `${s.color}22` : s.bgColor }]}>
+                  <Ionicons name={s.icon} size={18} color={s.color} />
                 </View>
-                <View style={styles.skillBarBg}>
-                  <View style={[styles.skillBarFill, { width: `${s.pct}%`, backgroundColor: s.color }]} />
+                <View style={styles.skillBarArea}>
+                  <View style={styles.skillLabelRow}>
+                    <Text style={[styles.skillLabelText, { color: theme.text }]}>{s.label}</Text>
+                    <Text style={[styles.skillPct, { color: s.color }]}>{pct}% ({s.score.toFixed(1)})</Text>
+                  </View>
+                  <View style={[styles.skillBarBg, { backgroundColor: theme.border }]}>
+                    <View style={[styles.skillBarFill, { width: `${pct}%`, backgroundColor: s.color }]} />
+                  </View>
                 </View>
               </View>
+            );
+          })}
+        </View>
+
+        {/* Radar chart */}
+        <View style={[styles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Biểu đồ kỹ năng</Text>
+          {loading ? (
+            <View style={{ height: 200, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator color={isDarkMode ? '#2196F3' : '#1565C0'} />
             </View>
-          ))}
+          ) : (
+            <RadarChart
+              reading={averageBands.reading}
+              listening={averageBands.listening}
+              writing={averageBands.writing}
+              speaking={averageBands.speaking}
+              isDarkMode={isDarkMode}
+              theme={theme}
+            />
+          )}
         </View>
-
-        {/* Radar chart placeholder */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Biểu đồ kỹ năng</Text>
-          <View style={styles.radarPlaceholder}>
-            <View style={styles.radarCircle3} />
-            <View style={styles.radarCircle2} />
-            <View style={styles.radarCircle1} />
-            <View style={styles.radarLineH} />
-            <View style={styles.radarLineV} />
-            <Text style={[styles.radarLabel, { top: 4, left: 86 }]}>Nghe</Text>
-            <Text style={[styles.radarLabel, { bottom: 4, left: 80 }]}>Viết</Text>
-            <Text style={[styles.radarLabel, { top: 86, right: 4 }]}>Đọc</Text>
-            <Text style={[styles.radarLabel, { top: 86, left: 4 }]}>Nói</Text>
-          </View>
-        </View>
-
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -271,14 +449,20 @@ const styles = StyleSheet.create({
   skillBarFill: { height: '100%', borderRadius: 4 },
 
   // Radar
-  radarPlaceholder: {
-    height: 200, alignItems: 'center', justifyContent: 'center', position: 'relative',
+  radarContainer: {
+    width: 240,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginTop: 10,
+    alignSelf: 'center',
   },
-  radarCircle1: { position: 'absolute', width: 60, height: 60, borderRadius: 30, borderWidth: 1, borderColor: '#E0E0E0' },
-  radarCircle2: { position: 'absolute', width: 110, height: 110, borderRadius: 55, borderWidth: 1, borderColor: '#E0E0E0' },
-  radarCircle3: { position: 'absolute', width: 160, height: 160, borderRadius: 80, borderWidth: 1, borderColor: '#E0E0E0' },
-  radarLineH: { position: 'absolute', width: 160, height: 1, backgroundColor: '#E0E0E0' },
-  radarLineV: { position: 'absolute', width: 1, height: 160, backgroundColor: '#E0E0E0' },
-  radarLabel: { position: 'absolute', fontSize: 11, color: '#757575', fontWeight: '600' },
+  radarLabel: {
+    position: 'absolute',
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '700',
+  },
 
 });

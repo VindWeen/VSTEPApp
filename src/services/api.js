@@ -29,6 +29,12 @@ export const register = (name, email, password, level) =>
 
 export const getMe = () => api.get('/auth/me');
 
+export const updateProfile = (name, level) =>
+  api.put('/auth/profile', { name, level });
+
+export const updatePassword = (oldPassword, newPassword) =>
+  api.put('/auth/password', { oldPassword, newPassword });
+
 // Listening / Questions
 export const getListeningTests = (params) =>
   api.get('/listening-tests', { params });
@@ -75,6 +81,10 @@ export const scoreSpeakingTest = (payload) =>
 export const getSpeakingTests = (params) => api.get('/speaking/tests', { params });
 export const getSpeakingHistory = (params) => api.get('/speaking', { params });
 export const getSpeakingSessionById = (id) => api.get(`/speaking/${id}`);
+
+// Full Mock Test
+export const saveFullMockResult = (payload) => api.post('/full-mock', payload);
+export const getFullMockHistory = (params) => api.get('/full-mock', { params });
 
 // Admin
 export const adminGetQuestions = (skill, params) =>

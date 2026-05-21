@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../../context/ThemeContext';
 import {
   scoreSpeakingTest,
   scoreWritingTest,
@@ -59,6 +60,7 @@ const inferAudioFileMeta = (uri = '', fallbackBaseName = 'speaking-part') => {
 };
 
 export default function MockTestHubScreen({ navigation, route }) {
+  const { theme, isDarkMode } = useTheme();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -283,9 +285,9 @@ export default function MockTestHubScreen({ navigation, route }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0F4C81" />
+          <ActivityIndicator size="large" color={isDarkMode ? '#64B5F6' : '#0F4C81'} />
         </View>
       </SafeAreaView>
     );
@@ -293,10 +295,10 @@ export default function MockTestHubScreen({ navigation, route }) {
 
   if (!session) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <View style={styles.center}>
-          <Text style={styles.emptyTitle}>Không có bài thi đang hoạt động</Text>
-          <TouchableOpacity style={styles.backHomeBtn} onPress={() => navigation.replace('MockTestIntro')}>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>Không có bài thi đang hoạt động</Text>
+          <TouchableOpacity style={[styles.backHomeBtn, { backgroundColor: isDarkMode ? '#1E88E5' : '#0F4C81' }]} onPress={() => navigation.replace('MockTestIntro')}>
             <Text style={styles.backHomeBtnText}>Tạo bài thi mới</Text>
           </TouchableOpacity>
         </View>
@@ -305,54 +307,68 @@ export default function MockTestHubScreen({ navigation, route }) {
   }
 
   const nextSkill = getNextFullMockSkill(session);
+  const primaryBtnColor = isDarkMode ? '#1E88E5' : '#0F4C81';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={20} color="#1A1A2E" />
+          <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.card }]} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={20} color={theme.text} />
           </TouchableOpacity>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.headerTitle}>Bài thi 4 kỹ năng</Text>
-            <Text style={styles.headerSub}>Làm lần lượt và chỉ nộp khi đủ cả 4 phần.</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Bài thi 4 kỹ năng</Text>
+            <Text style={[styles.headerSub, { color: theme.textSecondary }]}>Làm lần lượt và chỉ nộp khi đủ cả 4 phần.</Text>
           </View>
         </View>
 
         {FULL_MOCK_SKILL_ORDER.map((skill, index) => {
           const progress = session.progress?.[skill] || {};
-          const color = getFullMockSkillColor(skill);
+          const baseColor = getFullMockSkillColor(skill);
+          const color = isDarkMode
+            ? (skill === 'listening' ? '#64B5F6' : skill === 'reading' ? '#81C784' : skill === 'writing' ? '#FFB74D' : '#E040FB')
+            : baseColor;
           const status = progress.status || 'not_started';
           const isDone = status === 'completed';
           const isCurrent = nextSkill === skill;
           const test = session.selectedTests?.[skill];
 
+          let chipBg = isDarkMode ? '#333333' : '#ECEFF1';
+          let chipText = isDarkMode ? '#A0A0A0' : '#607D8B';
+          if (isDone) {
+            chipBg = isDarkMode ? '#1B5E20' : '#E8F5E9';
+            chipText = isDarkMode ? '#81C784' : '#2E7D32';
+          } else if (isCurrent) {
+            chipBg = isDarkMode ? '#0D47A1' : '#E3F2FD';
+            chipText = isDarkMode ? '#64B5F6' : '#1565C0';
+          }
+
           return (
-            <View key={skill} style={styles.skillCard}>
+            <View key={skill} style={[styles.skillCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <View style={styles.skillTop}>
                 <View style={[styles.skillBadge, { backgroundColor: `${color}18` }]}>
                   <Ionicons name={getFullMockSkillIcon(skill)} size={18} color={color} />
                 </View>
                 <View style={styles.skillContent}>
-                  <Text style={styles.skillName}>
+                  <Text style={[styles.skillName, { color: theme.text }]}>
                     {index + 1}. {getFullMockSkillLabel(skill)}
                   </Text>
-                  <Text style={styles.skillMeta}>{test?.title || 'Chưa có đề'}</Text>
+                  <Text style={[styles.skillMeta, { color: theme.textSecondary }]}>{test?.title || 'Chưa có đề'}</Text>
                 </View>
-                <View style={[styles.statusChip, isDone ? styles.statusDone : isCurrent ? styles.statusCurrent : styles.statusIdle]}>
-                  <Text style={[styles.statusChipText, isDone ? styles.statusDoneText : isCurrent ? styles.statusCurrentText : styles.statusIdleText]}>
+                <View style={[styles.statusChip, { backgroundColor: chipBg }]}>
+                  <Text style={[styles.statusChipText, { color: chipText }]}>
                     {isDone ? 'Hoàn thành' : isCurrent ? 'Sẵn sàng' : status === 'in_progress' ? 'Đang làm' : 'Chờ'}
                   </Text>
                 </View>
               </View>
 
               {progress.completedAt ? (
-                <Text style={styles.skillHint}>Phần này đã khóa sau khi hoàn thành.</Text>
+                <Text style={[styles.skillHint, { color: theme.textSecondary }]}>Phần này đã khóa sau khi hoàn thành.</Text>
               ) : status === 'in_progress' ? (
-                <Text style={styles.skillHint}>Có tiến trình đang lưu, bạn có thể vào làm tiếp.</Text>
+                <Text style={[styles.skillHint, { color: theme.textSecondary }]}>Có tiến trình đang lưu, bạn có thể vào làm tiếp.</Text>
               ) : (
-                <Text style={styles.skillHint}>Kỹ năng này sẽ mở theo đúng thứ tự bài thi.</Text>
+                <Text style={[styles.skillHint, { color: theme.textSecondary }]}>Kỹ năng này sẽ mở theo đúng thứ tự bài thi.</Text>
               )}
 
               {(isCurrent || status === 'in_progress') && !submitting ? (
@@ -367,7 +383,7 @@ export default function MockTestHubScreen({ navigation, route }) {
         })}
 
         <TouchableOpacity
-          style={[styles.primaryBtn, submitting && styles.primaryBtnDisabled]}
+          style={[styles.primaryBtn, { backgroundColor: primaryBtnColor }, submitting && styles.primaryBtnDisabled]}
           onPress={handlePrimaryAction}
           disabled={submitting}
         >

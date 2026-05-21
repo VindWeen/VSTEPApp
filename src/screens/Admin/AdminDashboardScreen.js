@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -23,6 +24,7 @@ import {
   adminGetWritingPrompts,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const sections = [
   { key: 'listening', label: 'Listening', color: '#1565C0' },
@@ -30,6 +32,26 @@ const sections = [
   { key: 'writing', label: 'Writing', color: '#E65100' },
   { key: 'speaking', label: 'Speaking', color: '#6A1B9A' },
 ];
+
+const getDynamicSectionColor = (key, isDarkMode) => {
+  if (isDarkMode) {
+    switch (key) {
+      case 'listening': return '#64B5F6';
+      case 'reading': return '#81C784';
+      case 'writing': return '#FFB74D';
+      case 'speaking': return '#E040FB';
+      default: return '#90A4AE';
+    }
+  } else {
+    switch (key) {
+      case 'listening': return '#1565C0';
+      case 'reading': return '#2E7D32';
+      case 'writing': return '#E65100';
+      case 'speaking': return '#6A1B9A';
+      default: return '#78909C';
+    }
+  }
+};
 
 const listeningTemplate = `{
   "level": "B1",
@@ -71,16 +93,18 @@ const initialSpeakingForm = {
   notes: '',
 };
 
-function SectionButton({ item, active, onPress }) {
+function SectionButton({ item, active, onPress, color }) {
+  const { theme } = useTheme();
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
         styles.sectionBtn,
-        active && { backgroundColor: item.color, borderColor: item.color },
+        { backgroundColor: theme.card, borderColor: theme.border },
+        active && { backgroundColor: color, borderColor: color },
       ]}
     >
-      <Text style={[styles.sectionBtnText, active && styles.sectionBtnTextActive]}>
+      <Text style={[styles.sectionBtnText, { color: theme.textSecondary }, active && { color: '#FFFFFF' }]}>
         {item.label}
       </Text>
     </TouchableOpacity>
@@ -88,10 +112,11 @@ function SectionButton({ item, active, onPress }) {
 }
 
 function InfoCard({ title, value, color }) {
+  const { theme } = useTheme();
   return (
-    <View style={[styles.infoCard, { borderLeftColor: color }]}>
-      <Text style={styles.infoTitle}>{title}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+    <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border, borderLeftColor: color }]}>
+      <Text style={[styles.infoTitle, { color: theme.textSecondary }]}>{title}</Text>
+      <Text style={[styles.infoValue, { color: theme.text }]}>{value}</Text>
     </View>
   );
 }
@@ -105,6 +130,8 @@ export default function AdminDashboardScreen({ navigation }) {
   const [jsonInput, setJsonInput] = useState(listeningTemplate);
   const [writingForm, setWritingForm] = useState(initialWritingForm);
   const [speakingForm, setSpeakingForm] = useState(initialSpeakingForm);
+
+  const { theme, isDarkMode } = useTheme();
 
   useEffect(() => {
     if (activeSection === 'listening') setJsonInput(listeningTemplate);
@@ -215,6 +242,7 @@ export default function AdminDashboardScreen({ navigation }) {
   };
 
   const activeMeta = sections.find((item) => item.key === activeSection);
+  const activeColor = getDynamicSectionColor(activeSection, isDarkMode);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -224,20 +252,21 @@ export default function AdminDashboardScreen({ navigation }) {
   }, [navigation, user]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={22} color="#1A1A2E" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
+      <View style={[styles.header, { backgroundColor: theme.background }]}>
+        <TouchableOpacity style={[styles.iconBtn, { backgroundColor: theme.card }]} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={22} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Quản Trị Đề Thi</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Quản Trị Đề Thi</Text>
         <View style={styles.iconBtnPlaceholder} />
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>Admin Panel</Text>
-          <Text style={styles.heroTitle}>Thêm nhanh đề mới và kiểm soát ngân hàng đề.</Text>
-          <Text style={styles.heroText}>
+        <View style={[styles.heroCard, { backgroundColor: isDarkMode ? theme.card : '#102A43', borderWidth: isDarkMode ? 1 : 0, borderColor: theme.border }]}>
+          <Text style={[styles.heroEyebrow, { color: isDarkMode ? theme.textSecondary : '#9FB3C8' }]}>Admin Panel</Text>
+          <Text style={[styles.heroTitle, { color: isDarkMode ? theme.text : '#FFFFFF' }]}>Thêm nhanh đề mới và kiểm soát ngân hàng đề.</Text>
+          <Text style={[styles.heroText, { color: isDarkMode ? theme.textSecondary : '#D9E2EC' }]}>
             Listening và Reading dùng JSON có cấu trúc. Writing và Speaking có form nhập trực tiếp.
           </Text>
         </View>
@@ -249,32 +278,34 @@ export default function AdminDashboardScreen({ navigation }) {
               item={item}
               active={activeSection === item.key}
               onPress={() => setActiveSection(item.key)}
+              color={getDynamicSectionColor(item.key, isDarkMode)}
             />
           ))}
         </ScrollView>
 
         <View style={styles.infoRow}>
-          <InfoCard title="Nhóm đang sửa" value={activeMeta.label} color={activeMeta.color} />
-          <InfoCard title="Số lượng hiện có" value={String(items.length)} color={activeMeta.color} />
+          <InfoCard title="Nhóm đang sửa" value={activeMeta.label} color={activeColor} />
+          <InfoCard title="Số lượng hiện có" value={String(items.length)} color={activeColor} />
         </View>
 
         {(activeSection === 'listening' || activeSection === 'reading') && (
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Tạo đề bằng JSON</Text>
-            <Text style={styles.panelHint}>
+          <View style={[styles.panel, { backgroundColor: theme.card }]}>
+            <Text style={[styles.panelTitle, { color: theme.text }]}>Tạo đề bằng JSON</Text>
+            <Text style={[styles.panelHint, { color: theme.textSecondary }]}>
               Dán payload đúng schema backend. Trường `skill` sẽ được server tự gắn theo nhóm đang chọn.
             </Text>
             <TextInput
-              style={styles.codeInput}
+              style={[styles.codeInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
               multiline
               textAlignVertical="top"
               value={jsonInput}
               onChangeText={setJsonInput}
               autoCapitalize="none"
               autoCorrect={false}
+              placeholderTextColor={theme.placeholder}
             />
             <TouchableOpacity
-              style={[styles.primaryBtn, { backgroundColor: activeMeta.color }]}
+              style={[styles.primaryBtn, { backgroundColor: activeColor }]}
               onPress={submitJson}
               disabled={saving}
             >
@@ -284,64 +315,64 @@ export default function AdminDashboardScreen({ navigation }) {
         )}
 
         {activeSection === 'writing' && (
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Tạo đề Writing</Text>
-            <TextInput style={styles.input} placeholder="Title" value={writingForm.title} onChangeText={(v) => setWritingForm((s) => ({ ...s, title: v }))} />
-            <TextInput style={styles.input} placeholder="Level" value={writingForm.level} onChangeText={(v) => setWritingForm((s) => ({ ...s, level: v }))} />
-            <TextInput style={styles.input} placeholder="Task Type" value={writingForm.taskType} onChangeText={(v) => setWritingForm((s) => ({ ...s, taskType: v }))} />
-            <TextInput style={styles.input} placeholder="Time Limit" keyboardType="numeric" value={writingForm.timeLimit} onChangeText={(v) => setWritingForm((s) => ({ ...s, timeLimit: v }))} />
-            <TextInput style={styles.input} placeholder="Min Words" keyboardType="numeric" value={writingForm.minWords} onChangeText={(v) => setWritingForm((s) => ({ ...s, minWords: v }))} />
-            <TextInput style={[styles.input, styles.multilineInput]} multiline textAlignVertical="top" placeholder="Prompt" value={writingForm.prompt} onChangeText={(v) => setWritingForm((s) => ({ ...s, prompt: v }))} />
-            <TextInput style={[styles.input, styles.multilineInput]} multiline textAlignVertical="top" placeholder="Notes" value={writingForm.notes} onChangeText={(v) => setWritingForm((s) => ({ ...s, notes: v }))} />
-            <TextInput style={[styles.input, styles.multilineInput]} multiline textAlignVertical="top" placeholder="Sample Outline" value={writingForm.sampleOutline} onChangeText={(v) => setWritingForm((s) => ({ ...s, sampleOutline: v }))} />
-            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: activeMeta.color }]} onPress={submitWriting} disabled={saving}>
+          <View style={[styles.panel, { backgroundColor: theme.card }]}>
+            <Text style={[styles.panelTitle, { color: theme.text }]}>Tạo đề Writing</Text>
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Title" value={writingForm.title} onChangeText={(v) => setWritingForm((s) => ({ ...s, title: v }))} />
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Level" value={writingForm.level} onChangeText={(v) => setWritingForm((s) => ({ ...s, level: v }))} />
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Task Type" value={writingForm.taskType} onChangeText={(v) => setWritingForm((s) => ({ ...s, taskType: v }))} />
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Time Limit" keyboardType="numeric" value={writingForm.timeLimit} onChangeText={(v) => setWritingForm((s) => ({ ...s, timeLimit: v }))} />
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Min Words" keyboardType="numeric" value={writingForm.minWords} onChangeText={(v) => setWritingForm((s) => ({ ...s, minWords: v }))} />
+            <TextInput style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} multiline textAlignVertical="top" placeholder="Prompt" value={writingForm.prompt} onChangeText={(v) => setWritingForm((s) => ({ ...s, prompt: v }))} />
+            <TextInput style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} multiline textAlignVertical="top" placeholder="Notes" value={writingForm.notes} onChangeText={(v) => setWritingForm((s) => ({ ...s, notes: v }))} />
+            <TextInput style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} multiline textAlignVertical="top" placeholder="Sample Outline" value={writingForm.sampleOutline} onChangeText={(v) => setWritingForm((s) => ({ ...s, sampleOutline: v }))} />
+            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: activeColor }]} onPress={submitWriting} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Lưu đề Writing</Text>}
             </TouchableOpacity>
           </View>
         )}
 
         {activeSection === 'speaking' && (
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Tạo đề Speaking</Text>
-            <TextInput style={styles.input} placeholder="Title" value={speakingForm.title} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, title: v }))} />
-            <TextInput style={styles.input} placeholder="Level" value={speakingForm.level} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, level: v }))} />
-            <TextInput style={styles.input} placeholder="Part Type" value={speakingForm.partType} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, partType: v }))} />
-            <TextInput style={styles.input} placeholder="Time Limit" keyboardType="numeric" value={speakingForm.timeLimit} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, timeLimit: v }))} />
-            <TextInput style={[styles.input, styles.multilineInput]} multiline textAlignVertical="top" placeholder="Prompt" value={speakingForm.prompt} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, prompt: v }))} />
-            <TextInput style={[styles.input, styles.multilineInput]} multiline textAlignVertical="top" placeholder="Cue card, mỗi dòng một ý" value={speakingForm.cueCard} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, cueCard: v }))} />
-            <TextInput style={[styles.input, styles.multilineInput]} multiline textAlignVertical="top" placeholder="Follow-up questions, mỗi dòng một câu" value={speakingForm.followUpQuestions} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, followUpQuestions: v }))} />
-            <TextInput style={[styles.input, styles.multilineInput]} multiline textAlignVertical="top" placeholder="Notes" value={speakingForm.notes} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, notes: v }))} />
-            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: activeMeta.color }]} onPress={submitSpeaking} disabled={saving}>
+          <View style={[styles.panel, { backgroundColor: theme.card }]}>
+            <Text style={[styles.panelTitle, { color: theme.text }]}>Tạo đề Speaking</Text>
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Title" value={speakingForm.title} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, title: v }))} />
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Level" value={speakingForm.level} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, level: v }))} />
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Part Type" value={speakingForm.partType} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, partType: v }))} />
+            <TextInput style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} placeholder="Time Limit" keyboardType="numeric" value={speakingForm.timeLimit} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, timeLimit: v }))} />
+            <TextInput style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} multiline textAlignVertical="top" placeholder="Prompt" value={speakingForm.prompt} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, prompt: v }))} />
+            <TextInput style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} multiline textAlignVertical="top" placeholder="Cue card, mỗi dòng một ý" value={speakingForm.cueCard} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, cueCard: v }))} />
+            <TextInput style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} multiline textAlignVertical="top" placeholder="Follow-up questions, mỗi dòng một câu" value={speakingForm.followUpQuestions} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, followUpQuestions: v }))} />
+            <TextInput style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]} placeholderTextColor={theme.placeholder} multiline textAlignVertical="top" placeholder="Notes" value={speakingForm.notes} onChangeText={(v) => setSpeakingForm((s) => ({ ...s, notes: v }))} />
+            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: activeColor }]} onPress={submitSpeaking} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Lưu đề Speaking</Text>}
             </TouchableOpacity>
           </View>
         )}
 
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Danh sách hiện có</Text>
+        <View style={[styles.panel, { backgroundColor: theme.card }]}>
+          <Text style={[styles.panelTitle, { color: theme.text }]}>Danh sách hiện có</Text>
           {loading ? (
-            <ActivityIndicator color={activeMeta.color} />
+            <ActivityIndicator color={activeColor} />
           ) : items.length === 0 ? (
-            <Text style={styles.emptyText}>Chưa có dữ liệu cho mục này.</Text>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Chưa có dữ liệu cho mục này.</Text>
           ) : (
             items.map((item) => (
-              <View key={item._id} style={styles.itemCard}>
+              <View key={item._id} style={[styles.itemCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={styles.itemHead}>
-                  <View style={[styles.dot, { backgroundColor: activeMeta.color }]} />
-                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <View style={[styles.dot, { backgroundColor: activeColor }]} />
+                  <Text style={[styles.itemTitle, { color: theme.text }]}>{item.title}</Text>
                 </View>
-                <Text style={styles.itemMeta}>
+                <Text style={[styles.itemMeta, { color: theme.textSecondary }]}>
                   {item.level}
                   {item.skill ? ` • ${item.skill}` : ''}
                   {item.taskType ? ` • ${item.taskType}` : ''}
                   {item.partType ? ` • ${item.partType}` : ''}
                 </Text>
-                <Text numberOfLines={3} style={styles.itemSnippet}>
+                <Text numberOfLines={3} style={[styles.itemSnippet, { color: theme.textSecondary }]}>
                   {item.description || item.prompt || `${item.parts?.length || 0} parts`}
                 </Text>
-                <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item._id)}>
-                  <Ionicons name="trash-outline" size={16} color="#B42318" />
-                  <Text style={styles.deleteBtnText}>Xóa</Text>
+                <TouchableOpacity style={[styles.deleteBtn, { backgroundColor: isDarkMode ? '#4C1D1D' : '#FEF3F2' }]} onPress={() => handleDelete(item._id)}>
+                  <Ionicons name="trash-outline" size={16} color={isDarkMode ? '#FF8A80' : '#B42318'} />
+                  <Text style={[styles.deleteBtnText, { color: isDarkMode ? '#FF8A80' : '#B42318' }]}>Xóa</Text>
                 </TouchableOpacity>
               </View>
             ))

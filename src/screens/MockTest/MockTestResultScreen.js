@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 import { getFullMockSkillColor, getFullMockSkillIcon, getFullMockSkillLabel } from '../../utils/fullMockTest';
 
 const formatDateTime = (value) => {
@@ -23,13 +24,24 @@ const formatDateTime = (value) => {
 };
 
 export default function MockTestResultScreen({ route, navigation }) {
+  const { theme, isDarkMode } = useTheme();
   const result = route.params?.result;
+  const fromHistory = route.params?.fromHistory;
+
+  const handleClose = () => {
+    if (fromHistory) {
+      navigation.popToTop();
+      navigation.navigate('Profile', { screen: 'History' });
+    } else {
+      navigation.popToTop();
+    }
+  };
 
   if (!result) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <View style={styles.center}>
-          <Text style={styles.emptyText}>Không có dữ liệu kết quả.</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Không có dữ liệu kết quả.</Text>
         </View>
       </SafeAreaView>
     );
@@ -78,36 +90,42 @@ export default function MockTestResultScreen({ route, navigation }) {
     });
   };
 
+  const homeBtnColor = isDarkMode ? '#1E88E5' : '#0F4C81';
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('HomeMain')}>
-          <Ionicons name="close" size={20} color="#1A1A2E" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
+      <View style={[styles.header, { backgroundColor: theme.background }]}>
+        <TouchableOpacity style={[styles.closeBtn, { backgroundColor: theme.card }]} onPress={handleClose}>
+          <Ionicons name="close" size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kết quả thi thử 4 kỹ năng</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Kết quả thi thử 4 kỹ năng</Text>
         <View style={styles.spacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>OVERALL BAND</Text>
-          <Text style={styles.heroBand}>{result.overallBand?.toFixed(1) || '0.0'}</Text>
-          <Text style={styles.heroMeta}>{formatDateTime(result.completedAt)}</Text>
+        <View style={[styles.heroCard, { backgroundColor: isDarkMode ? theme.card : '#0F4C81', borderColor: theme.border, borderWidth: isDarkMode ? 1 : 0 }]}>
+          <Text style={[styles.heroLabel, { color: isDarkMode ? theme.textSecondary : '#B9D9F3' }]}>OVERALL BAND</Text>
+          <Text style={[styles.heroBand, { color: isDarkMode ? '#64B5F6' : '#fff' }]}>{result.overallBand?.toFixed(1) || '0.0'}</Text>
+          <Text style={[styles.heroMeta, { color: isDarkMode ? theme.textSecondary : '#D7EAF7' }]}>{formatDateTime(result.completedAt)}</Text>
         </View>
 
         {['listening', 'reading', 'speaking', 'writing'].map((skill) => {
           const skillResult = result.skills?.[skill];
-          const color = getFullMockSkillColor(skill);
+          const baseColor = getFullMockSkillColor(skill);
+          const color = isDarkMode
+            ? (skill === 'listening' ? '#64B5F6' : skill === 'reading' ? '#81C784' : skill === 'writing' ? '#FFB74D' : '#E040FB')
+            : baseColor;
+
           return (
-            <View key={skill} style={styles.skillCard}>
+            <View key={skill} style={[styles.skillCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <View style={styles.skillRow}>
                 <View style={[styles.skillIcon, { backgroundColor: `${color}18` }]}>
                   <Ionicons name={getFullMockSkillIcon(skill)} size={18} color={color} />
                 </View>
                 <View style={styles.skillInfo}>
-                  <Text style={styles.skillName}>{getFullMockSkillLabel(skill)}</Text>
-                  <Text style={styles.skillMeta}>{skillResult?.testTitle || result.selectedTests?.[skill]?.title}</Text>
+                  <Text style={[styles.skillName, { color: theme.text }]}>{getFullMockSkillLabel(skill)}</Text>
+                  <Text style={[styles.skillMeta, { color: theme.textSecondary }]}>{skillResult?.testTitle || result.selectedTests?.[skill]?.title}</Text>
                 </View>
                 <Text style={[styles.skillBand, { color }]}>{skillResult?.band?.toFixed(1) || '0.0'}</Text>
               </View>
@@ -119,7 +137,7 @@ export default function MockTestResultScreen({ route, navigation }) {
           );
         })}
 
-        <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('HomeMain')}>
+        <TouchableOpacity style={[styles.homeBtn, { backgroundColor: homeBtnColor }]} onPress={handleClose}>
           <Text style={styles.homeBtnText}>Về trang chủ</Text>
         </TouchableOpacity>
       </ScrollView>

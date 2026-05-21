@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getWritingHistory, getWritingTests } from '../../services/api';
 import { getPracticeStateKey, loadPracticeStates } from '../../utils/practiceState';
+import { getCache, setCache } from '../../utils/cache';
+import { useTheme } from '../../context/ThemeContext';
 
 const FILTERS = ['Tất cả', 'A2', 'B1', 'B2', 'C1'];
 
@@ -62,23 +64,51 @@ const groupWritingTests = (items = []) => {
 };
 
 export default function WritingListScreen({ navigation }) {
+  const { isDarkMode, theme } = useTheme();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Tất cả');
 
-  const fetchTests = useCallback(async () => {
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const rawTasksRef = useRef([]);
+  const historyItemsRef = useRef([]);
+
+  const fetchTests = useCallback(async (pageNum = 1, isLoadMore = false) => {
     try {
-      const [testsRes, historyRes] = await Promise.all([
-        getWritingTests({ limit: 100 }),
-        getWritingHistory({ limit: 100 }),
-      ]);
-      const data = testsRes.data?.data || [];
-      const groupedTests = groupWritingTests(data);
-      const historyItems = historyRes.data?.data || [];
+      const apiParams = {
+        page: pageNum,
+        limit: 10,
+      };
+      if (activeFilter !== 'Tất cả') {
+        apiParams.level = activeFilter;
+      }
+
+      let newRawTasks = [];
+      let totalCount = 0;
+      if (pageNum === 1) {
+        const [testsRes, historyRes] = await Promise.all([
+          getWritingTests(apiParams),
+          getWritingHistory({ limit: 100 }),
+        ]);
+        newRawTasks = testsRes.data?.data || [];
+        totalCount = Math.ceil((testsRes.data?.total || 0) / 2);
+        rawTasksRef.current = newRawTasks;
+        historyItemsRef.current = historyRes.data?.data || [];
+      } else {
+        const testsRes = await getWritingTests(apiParams);
+        newRawTasks = testsRes.data?.data || [];
+        totalCount = Math.ceil((testsRes.data?.total || 0) / 2);
+        rawTasksRef.current = [...rawTasksRef.current, ...newRawTasks];
+      }
+
+      const groupedTests = groupWritingTests(rawTasksRef.current);
       const draftMap = await loadPracticeStates('writing', groupedTests.map((item) => item._id));
 
-      const bestBandByTitle = historyItems.reduce((acc, item) => {
+      const bestBandByTitle = historyItemsRef.current.reduce((acc, item) => {
         const title = item.testTitle;
         const band = item.aiFeedback?.band ?? item.bandScore ?? item.estimatedBand ?? 0;
         if (!title) return acc;
@@ -86,38 +116,80 @@ export default function WritingListScreen({ navigation }) {
         return acc;
       }, {});
 
-      setTests(
-        groupedTests.map((item) => {
-          const draft = draftMap[getPracticeStateKey('writing', item._id)];
-          const bestBand = bestBandByTitle[item.title] || 0;
-          const status = draft ? 'inProgress' : bestBand > 0 ? 'done' : 'notDone';
+      const processedItems = groupedTests.map((item) => {
+        const draft = draftMap[getPracticeStateKey('writing', item._id)];
+        const bestBand = bestBandByTitle[item.title] || 0;
+        const status = draft ? 'inProgress' : bestBand > 0 ? 'done' : 'notDone';
 
-          return {
-            ...item,
-            status,
-            draft,
-            bestBand,
-          };
-        })
-      );
-    } catch {
-      setTests([]);
+        return {
+          ...item,
+          status,
+          draft,
+          bestBand,
+        };
+      });
+
+      if (pageNum === 1) {
+        setTests(processedItems);
+        setTotal(totalCount);
+        setPage(1);
+        setHasMore(newRawTasks.length === 10);
+        await setCache(`writing_tests_${activeFilter}`, { data: processedItems, total: totalCount });
+      } else {
+        setTests(processedItems);
+        setTotal(totalCount);
+        setPage(pageNum);
+        setHasMore(newRawTasks.length === 10);
+      }
+    } catch (e) {
+      console.error('Lỗi load đề viết:', e.message);
+      if (!isLoadMore) {
+        setTests([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [activeFilter]);
+
+  const loadCacheAndFetch = useCallback(async () => {
+    const cached = await getCache(`writing_tests_${activeFilter}`);
+    if (cached) {
+      if (Array.isArray(cached)) {
+        setTests(cached);
+        setTotal(cached.length);
+      } else {
+        setTests(cached.data || []);
+        setTotal(cached.total || 0);
+      }
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    await fetchTests(1, false);
+  }, [activeFilter, fetchTests]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchTests();
-    }, [fetchTests])
+      loadCacheAndFetch();
+    }, [loadCacheAndFetch])
   );
 
-  const filteredTests = useMemo(
-    () => tests.filter((test) => activeFilter === 'Tất cả' || test.level === activeFilter),
-    [activeFilter, tests]
-  );
+  const handleLoadMore = () => {
+    if (loading || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    fetchTests(page + 1, true);
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={isDarkMode ? '#FF9800' : '#E65100'} />
+      </View>
+    );
+  };
 
   const openWritingTest = (item) => {
     if (item.status === 'inProgress' && item.draft) {
@@ -139,72 +211,86 @@ export default function WritingListScreen({ navigation }) {
     return 'Bắt đầu ngay';
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => openWritingTest(item)}
-      activeOpacity={0.85}
-    >
-      <View style={styles.cardTop}>
-        <View style={styles.cardLeft}>
-          <View style={styles.cardIcon}>
-            <Ionicons name="create" size={20} color="#E65100" />
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardMeta}>
-              {item.tasks.length} task • {item.totalDuration} phút • {item.level}
-            </Text>
-            <Text style={styles.cardTasks}>
-              {item.tasks.map((task) => task.taskType).join(' + ')}
-            </Text>
-            {item.status === 'inProgress' ? (
-              <Text style={styles.cardDraftText}>Đang làm dở</Text>
-            ) : null}
-            {item.status === 'done' ? (
-              <View style={styles.scoreWrap}>
-                <View style={styles.progressBarBg}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${Math.min((item.bestBand / 9) * 100, 100)}%` },
-                    ]}
-                  />
+  const renderItem = ({ item }) => {
+    const progressBg = isDarkMode ? 'rgba(230, 81, 0, 0.15)' : '#FBE9E7';
+    const progressColor = isDarkMode ? '#FF9800' : '#E65100';
+    const cardIconBg = isDarkMode ? 'rgba(230, 81, 0, 0.15)' : '#FBE9E7';
+    const primaryColor = isDarkMode ? '#FF9800' : '#E65100';
+
+    return (
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+        onPress={() => openWritingTest(item)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.cardTop}>
+          <View style={styles.cardLeft}>
+            <View style={[styles.cardIcon, { backgroundColor: cardIconBg }]}>
+              <Ionicons name="create" size={20} color={primaryColor} />
+            </View>
+            <View style={styles.cardInfo}>
+              <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={[styles.cardMeta, { color: theme.textSecondary }]}>
+                {item.tasks.length} task • {item.totalDuration} phút • {item.level}
+              </Text>
+              <Text style={[styles.cardTasks, { color: primaryColor }]}>
+                {item.tasks.map((task) => task.taskType).join(' + ')}
+              </Text>
+              {item.status === 'inProgress' ? (
+                <Text style={[styles.cardDraftText, { color: primaryColor }]}>Đang làm dở</Text>
+              ) : null}
+              {item.status === 'done' ? (
+                <View style={styles.scoreWrap}>
+                  <View style={[styles.progressBarBg, { backgroundColor: progressBg }]}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${Math.min((item.bestBand / 9) * 100, 100)}%`, backgroundColor: progressColor },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.bandText, { color: primaryColor }]}>{item.bestBand.toFixed(1)}/9.0</Text>
                 </View>
-                <Text style={styles.bandText}>{item.bestBand.toFixed(1)}/9.0</Text>
-              </View>
-            ) : null}
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.cardRight}>
+            {item.status === 'done' ? (
+              <Text style={[styles.doneText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>Đã làm</Text>
+            ) : item.status === 'inProgress' ? (
+              <Text style={[styles.inProgressText, { color: primaryColor }]}>Đang làm</Text>
+            ) : (
+              <Text style={[styles.notDoneText, { color: theme.textSecondary }]}>Chưa làm</Text>
+            )}
           </View>
         </View>
 
-        <View style={styles.cardRight}>
-          {item.status === 'done' ? (
-            <Text style={styles.doneText}>Đã làm</Text>
-          ) : item.status === 'inProgress' ? (
-            <Text style={styles.inProgressText}>Đang làm</Text>
-          ) : (
-            <Text style={styles.notDoneText}>Chưa làm</Text>
-          )}
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.actionBtn} onPress={() => openWritingTest(item)}>
-        <Text style={styles.actionBtnText}>{getActionLabel(item)}</Text>
+        <TouchableOpacity
+          style={[styles.actionBtn, { borderColor: primaryColor }]}
+          onPress={() => openWritingTest(item)}
+        >
+          <Text style={[styles.actionBtnText, { color: primaryColor }]}>{getActionLabel(item)}</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
+
+  const primaryColor = isDarkMode ? '#FF9800' : '#E65100';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.background }]}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#1A1A2E" />
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Luyện Viết</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Luyện Viết</Text>
         <TouchableOpacity style={styles.iconBtn}>
-          <Ionicons name="ellipsis-horizontal" size={24} color="#1A1A2E" />
+          <Ionicons name="ellipsis-horizontal" size={24} color={theme.text} />
         </TouchableOpacity>
       </View>
 
@@ -218,7 +304,7 @@ export default function WritingListScreen({ navigation }) {
             <Text style={styles.heroSubtitle}>Mỗi đề gồm 2 task đúng format bài thi</Text>
             <View style={styles.heroBadgeRow}>
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>{tests.length} test</Text>
+                <Text style={styles.heroBadgeText}>{total} đề</Text>
               </View>
               <View style={styles.heroBadge}>
                 <Text style={styles.heroBadgeText}>AI chấm điểm</Text>
@@ -234,36 +320,42 @@ export default function WritingListScreen({ navigation }) {
         style={styles.filterScrollView}
         contentContainerStyle={styles.filterScroll}
       >
-        {FILTERS.map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[styles.filterBtn, activeFilter === filter && styles.filterBtnActive]}
-            onPress={() => setActiveFilter(filter)}
-          >
-            <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-              {filter}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {FILTERS.map((filter) => {
+          const isActive = activeFilter === filter;
+          const btnBg = isActive ? primaryColor : theme.card;
+          const btnBorder = isActive ? primaryColor : theme.border;
+          const txtColor = isActive ? (isDarkMode ? '#121212' : '#fff') : theme.textSecondary;
+          return (
+            <TouchableOpacity
+              key={filter}
+              style={[styles.filterBtn, { backgroundColor: btnBg, borderColor: btnBorder }]}
+              onPress={() => setActiveFilter(filter)}
+            >
+              <Text style={[styles.filterText, { color: txtColor }]}>
+                {filter}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       <View style={styles.listHeader}>
         <View style={styles.listHeaderLeft}>
-          <Text style={styles.listHeaderTitle}>Đề thi</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{filteredTests.length}</Text>
+          <Text style={[styles.listHeaderTitle, { color: theme.text }]}>Đề thi</Text>
+          <View style={[styles.countBadge, { backgroundColor: primaryColor }]}>
+            <Text style={[styles.countBadgeText, { color: isDarkMode ? '#121212' : '#fff' }]}>{total}</Text>
           </View>
         </View>
-        <Text style={styles.seeAll}>Xem tất cả</Text>
+        <Text style={[styles.seeAll, { color: primaryColor }]}>Xem tất cả</Text>
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#E65100" />
+          <ActivityIndicator size="large" color={primaryColor} />
         </View>
       ) : (
         <FlatList
-          data={filteredTests}
+          data={tests}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
@@ -271,17 +363,22 @@ export default function WritingListScreen({ navigation }) {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => {
+              onRefresh={async () => {
                 setRefreshing(true);
-                fetchTests();
+                await fetchTests(1, false);
+                setRefreshing(false);
               }}
-              colors={['#E65100']}
+              colors={[primaryColor]}
+              tintColor={theme.text}
             />
           }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.15}
+          ListFooterComponent={renderFooter}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="create-outline" size={60} color="#CFD8DC" />
-              <Text style={styles.emptyText}>Chưa có đề thi nào cho trình độ này</Text>
+              <Ionicons name="create-outline" size={60} color={isDarkMode ? '#444' : '#CFD8DC'} />
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Chưa có đề thi nào cho trình độ này</Text>
             </View>
           }
         />
@@ -425,4 +522,9 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 14, fontWeight: '700', color: '#E65100' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
   emptyText: { textAlign: 'center', color: '#90A4AE', marginTop: 16, fontSize: 15, fontWeight: '500' },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

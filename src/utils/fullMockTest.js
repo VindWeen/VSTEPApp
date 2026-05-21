@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveFullMockResult, getFullMockHistory } from '../services/api';
 
 const ACTIVE_SESSION_KEY = 'full_mock_test_active_session';
 const HISTORY_KEY = 'full_mock_test_history';
@@ -295,6 +296,24 @@ export const calculateOverallBand = (bands = []) => {
 };
 
 export const loadFullMockHistory = async () => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    if (token) {
+      const response = await getFullMockHistory({ limit: 50 });
+      if (response?.data?.success) {
+        const serverItems = response.data.data || [];
+        const mappedItems = serverItems.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        await saveFullMockHistory(mappedItems);
+        return mappedItems;
+      }
+    }
+  } catch (error) {
+    console.warn('Lỗi tải lịch sử thi toàn diện từ server, dùng local:', error.message);
+  }
+
   const raw = await AsyncStorage.getItem(HISTORY_KEY);
   return safeJsonParse(raw, []);
 };
@@ -309,6 +328,16 @@ export const appendFullMockHistory = async (entry) => {
     (a, b) => new Date(b.completedAt || b.createdAt || 0) - new Date(a.completedAt || a.createdAt || 0)
   );
   await saveFullMockHistory(next);
+
+  try {
+    const token = await AsyncStorage.getItem('token');
+    if (token) {
+      await saveFullMockResult(entry);
+    }
+  } catch (error) {
+    console.warn('Lỗi đồng bộ kết quả bài thi toàn diện lên server:', error.message);
+  }
+
   return next;
 };
 
@@ -316,3 +345,4 @@ export const getLatestFullMockHistory = async () => {
   const history = await loadFullMockHistory();
   return history[0] || null;
 };
+

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert, StatusBar } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -13,6 +14,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState('');
+  const { theme, isDarkMode } = useTheme();
 
   const handleSubmit = async () => {
     if (!email || !password) return Alert.alert('Lỗi', 'Vui lòng nhập email và mật khẩu');
@@ -29,36 +31,41 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
           <View style={styles.headerCentered}>
-            <View style={styles.logoSquare}>
-              <MaterialCommunityIcons name="school" size={40} color="#FFF" />
+            <View style={[styles.logoSquare, { backgroundColor: isDarkMode ? '#1E1E1E' : '#1565C0', shadowColor: isDarkMode ? '#000' : '#1565C0' }]}>
+              <MaterialCommunityIcons name="school" size={40} color={isDarkMode ? '#64B5F6' : '#FFF'} />
             </View>
-            <Text style={styles.appName}>VSTEP Practice</Text>
+            <Text style={[styles.appName, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>VSTEP Practice</Text>
           </View>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Đăng nhập</Text>
-            <Text style={styles.subtitle}>Chào mừng trở lại! Hãy tiếp tục luyện tập.</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Đăng nhập</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Chào mừng trở lại! Hãy tiếp tục luyện tập.</Text>
           </View>
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <View style={[styles.inputWrapper, isFocused === 'email' && styles.inputWrapperFocused]}>
-                <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Text style={[styles.label, { color: theme.text }]}>Email</Text>
+              <View style={[
+                styles.inputWrapper, 
+                { backgroundColor: theme.inputBg, borderColor: theme.inputBorder },
+                isFocused === 'email' && { borderColor: isDarkMode ? '#64B5F6' : '#1565C0', backgroundColor: theme.card }
+              ]}>
+                <Ionicons name="person-outline" size={20} color={theme.textSecondary} style={styles.inputIcon} />
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: theme.inputText }]}
                   placeholder="minh@email.com"
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={theme.placeholder}
                   onFocus={() => setIsFocused('email')}
                   onBlur={() => setIsFocused('')}
                 />
@@ -66,68 +73,72 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mật khẩu</Text>
-              <View style={[styles.inputWrapper, isFocused === 'password' && styles.inputWrapperFocused]}>
-                <Ionicons name="lock-closed-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Text style={[styles.label, { color: theme.text }]}>Mật khẩu</Text>
+              <View style={[
+                styles.inputWrapper, 
+                { backgroundColor: theme.inputBg, borderColor: theme.inputBorder },
+                isFocused === 'password' && { borderColor: isDarkMode ? '#64B5F6' : '#1565C0', backgroundColor: theme.card }
+              ]}>
+                <Ionicons name="lock-closed-outline" size={20} color={theme.textSecondary} style={styles.inputIcon} />
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: theme.inputText }]}
                   placeholder="••••••••"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={theme.placeholder}
                   onFocus={() => setIsFocused('password')}
                   onBlur={() => setIsFocused('')}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" />
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={theme.textSecondary} />
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.forgotPasswordRow}>
               <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+                <Text style={[styles.forgotPasswordText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>Quên mật khẩu?</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
+            <TouchableOpacity style={[styles.submitBtn, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} onPress={handleSubmit} disabled={loading}>
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={isDarkMode ? '#121212' : '#fff'} />
               ) : (
                 <>
-                  <Text style={styles.submitBtnText}>Đăng nhập</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+                  <Text style={[styles.submitBtnText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Đăng nhập</Text>
+                  <Ionicons name="arrow-forward" size={20} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 8 }} />
                 </>
               )}
             </TouchableOpacity>
 
             <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>hoặc</Text>
-              <View style={styles.dividerLine} />
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+              <Text style={[styles.dividerText, { color: theme.textSecondary }]}>hoặc</Text>
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
             </View>
 
-            <TouchableOpacity style={styles.socialBtn}>
+            <TouchableOpacity style={[styles.socialBtn, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <Ionicons name="logo-google" size={20} color="#DB4437" />
-              <Text style={styles.socialBtnText}>Tiếp tục với Google</Text>
+              <Text style={[styles.socialBtnText, { color: theme.text }]}>Tiếp tục với Google</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Chưa có tài khoản? </Text>
+            <Text style={[styles.footerText, { color: theme.textSecondary }]}>Chưa có tài khoản? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.footerLink}>Đăng ký</Text>
+              <Text style={[styles.footerLink, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>Đăng ký</Text>
             </TouchableOpacity>
           </View>
 
           {/* Quick test login */}
           <TouchableOpacity
-            style={styles.quickBtn}
+            style={[styles.quickBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => { setEmail('admin@gmail.com'); setPassword('123456'); }}
           >
-            <Ionicons name="flash-outline" size={16} color="#94A3B8" style={{ marginRight: 4 }} />
-            <Text style={styles.quickBtnText}>Dev: Điền tài khoản test</Text>
+            <Ionicons name="flash-outline" size={16} color={theme.placeholder} style={{ marginRight: 4 }} />
+            <Text style={[styles.quickBtnText, { color: theme.textSecondary }]}>Dev: Điền tài khoản test</Text>
           </TouchableOpacity>
 
         </ScrollView>

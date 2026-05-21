@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,44 +24,71 @@ import {
   getReadingDetail,
 } from '../../services/api';
 import { loadFullMockHistory } from '../../utils/fullMockTest';
+import { useTheme } from '../../context/ThemeContext';
 
 const SKILL_TABS = [
-  { key: 'all', label: 'Tất cả', icon: 'apps', color: '#455A64' },
-  { key: 'mocktest', label: 'Thi thử', icon: 'ribbon', color: '#0F4C81' },
-  { key: 'listening', label: 'Nghe', icon: 'headset', color: '#1565C0' },
-  { key: 'reading', label: 'Đọc', icon: 'book', color: '#2E7D32' },
-  { key: 'writing', label: 'Viết', icon: 'create', color: '#E65100' },
-  { key: 'speaking', label: 'Nói', icon: 'mic', color: '#6A1B9A' },
+  { key: 'all', label: 'Tất cả', icon: 'apps' },
+  { key: 'mocktest', label: 'Thi thử', icon: 'ribbon' },
+  { key: 'listening', label: 'Nghe', icon: 'headset' },
+  { key: 'reading', label: 'Đọc', icon: 'book' },
+  { key: 'writing', label: 'Viết', icon: 'create' },
+  { key: 'speaking', label: 'Nói', icon: 'mic' },
 ];
 
-const SKILL_META = {
-  mocktest: { label: 'Thi thử', icon: 'ribbon', color: '#0F4C81', light: '#E3F2FD' },
-  listening: { label: 'Nghe', icon: 'headset', color: '#1565C0', light: '#E3F2FD' },
-  reading: { label: 'Đọc', icon: 'book', color: '#2E7D32', light: '#E8F5E9' },
-  writing: { label: 'Viết', icon: 'create', color: '#E65100', light: '#FFF3E0' },
-  speaking: { label: 'Nói', icon: 'mic', color: '#6A1B9A', light: '#F3E5F5' },
+const getDynamicMeta = (skill, isDarkMode) => {
+  if (isDarkMode) {
+    switch (skill) {
+      case 'mocktest':
+        return { label: 'Thi thử', icon: 'ribbon', color: '#64B5F6', light: 'rgba(100, 181, 246, 0.15)' };
+      case 'listening':
+        return { label: 'Nghe', icon: 'headset', color: '#64B5F6', light: 'rgba(100, 181, 246, 0.15)' };
+      case 'reading':
+        return { label: 'Đọc', icon: 'book', color: '#81C784', light: 'rgba(129, 199, 132, 0.15)' };
+      case 'writing':
+        return { label: 'Viết', icon: 'create', color: '#FFB74D', light: 'rgba(255, 183, 77, 0.15)' };
+      case 'speaking':
+        return { label: 'Nói', icon: 'mic', color: '#E040FB', light: 'rgba(224, 64, 251, 0.15)' };
+      default:
+        return { label: 'Tất cả', icon: 'apps', color: '#E0E0E0', light: 'rgba(255, 255, 255, 0.1)' };
+    }
+  } else {
+    switch (skill) {
+      case 'mocktest':
+        return { label: 'Thi thử', icon: 'ribbon', color: '#0F4C81', light: '#E3F2FD' };
+      case 'listening':
+        return { label: 'Nghe', icon: 'headset', color: '#1565C0', light: '#E3F2FD' };
+      case 'reading':
+        return { label: 'Đọc', icon: 'book', color: '#2E7D32', light: '#E8F5E9' };
+      case 'writing':
+        return { label: 'Viết', icon: 'create', color: '#E65100', light: '#FFF3E0' };
+      case 'speaking':
+        return { label: 'Nói', icon: 'mic', color: '#6A1B9A', light: '#F3E5F5' };
+      default:
+        return { label: 'Tất cả', icon: 'apps', color: '#455A64', light: '#ECEFF1' };
+    }
+  }
 };
 
-const BAND_COLOR = (band) => {
+const BAND_COLOR = (band, isDarkMode) => {
   const numericBand = typeof band === 'number' ? band : null;
   if (numericBand !== null) {
-    if (numericBand >= 6.5) return '#1565C0';
-    if (numericBand >= 5.0) return '#2E7D32';
-    if (numericBand >= 4.0) return '#EF6C00';
-    return '#D32F2F';
+    if (numericBand >= 6.5) return isDarkMode ? '#64B5F6' : '#1565C0';
+    if (numericBand >= 5.0) return isDarkMode ? '#81C784' : '#2E7D32';
+    if (numericBand >= 4.0) return isDarkMode ? '#FFB74D' : '#EF6C00';
+    return isDarkMode ? '#FF8A80' : '#D32F2F';
   }
 
   switch (band) {
     case 'C1':
-      return '#1565C0';
+      return isDarkMode ? '#64B5F6' : '#1565C0';
     case 'B2':
-      return '#2E7D32';
+      return isDarkMode ? '#81C784' : '#2E7D32';
     case 'B1':
-      return '#EF6C00';
+      return isDarkMode ? '#FFB74D' : '#EF6C00';
     case 'A2':
-      return '#8D6E63';
+      return isDarkMode ? '#A1887F' : '#8D6E63';
     default:
-      return '#78909C';
+      return isDarkMode ? '#90A4AE' : '#78909C';
   }
 };
 
@@ -123,54 +152,107 @@ export default function HistoryScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('all');
   const [openingId, setOpeningId] = useState(null);
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [allMergedResults, setAllMergedResults] = useState([]);
+
+  const { theme, isDarkMode } = useTheme();
+
   const parentNavigation = navigation.getParent();
 
-  const fetchResults = async (skill) => {
+  const fetchResults = async (skill, pageNum = 1, isLoadMore = false) => {
     try {
       if (skill === 'all') {
-        const [objectiveRes, writingRes, speakingRes, mockHistory] = await Promise.all([
-          getMyResults({ limit: 100 }),
-          getWritingHistory({ limit: 100 }),
-          getSpeakingHistory({ limit: 100 }),
-          loadFullMockHistory(),
-        ]);
+        if (!isLoadMore) {
+          const [objectiveRes, writingRes, speakingRes, mockHistory] = await Promise.all([
+            getMyResults({ limit: 40 }),
+            getWritingHistory({ limit: 40 }),
+            getSpeakingHistory({ limit: 40 }),
+            loadFullMockHistory(),
+          ]);
 
-        const merged = [
-          ...(mockHistory || []).map(normalizeMockTestItem),
-          ...(objectiveRes.data.data || []).map(normalizeObjectiveItem),
-          ...(writingRes.data.data || []).map(normalizeWritingItem),
-          ...(speakingRes.data.data || []).map(normalizeSpeakingItem),
-        ].sort((a, b) => new Date(b.dateValue || 0) - new Date(a.dateValue || 0));
+          const merged = [
+            ...(mockHistory || []).map(normalizeMockTestItem),
+            ...(objectiveRes.data.data || []).map(normalizeObjectiveItem),
+            ...(writingRes.data.data || []).map(normalizeWritingItem),
+            ...(speakingRes.data.data || []).map(normalizeSpeakingItem),
+          ].sort((a, b) => new Date(b.dateValue || 0) - new Date(a.dateValue || 0));
 
-        setResults(merged);
+          setAllMergedResults(merged);
+          setResults(merged.slice(0, 10));
+          setPage(1);
+          setHasMore(merged.length > 10);
+        } else {
+          const nextStartIndex = pageNum * 10 - 10;
+          const nextSlice = allMergedResults.slice(nextStartIndex, nextStartIndex + 10);
+          if (nextSlice.length > 0) {
+            setResults((prev) => [...prev, ...nextSlice]);
+            setPage(pageNum);
+          }
+          setHasMore(allMergedResults.length > nextStartIndex + nextSlice.length);
+        }
         return;
       }
 
       if (skill === 'mocktest') {
-        const mockHistory = await loadFullMockHistory();
-        setResults((mockHistory || []).map(normalizeMockTestItem));
+        if (!isLoadMore) {
+          const mockHistory = await loadFullMockHistory();
+          const sorted = (mockHistory || [])
+            .map(normalizeMockTestItem)
+            .sort((a, b) => new Date(b.dateValue || 0) - new Date(a.dateValue || 0));
+          
+          setAllMergedResults(sorted);
+          setResults(sorted.slice(0, 10));
+          setPage(1);
+          setHasMore(sorted.length > 10);
+        } else {
+          const nextStartIndex = pageNum * 10 - 10;
+          const nextSlice = allMergedResults.slice(nextStartIndex, nextStartIndex + 10);
+          if (nextSlice.length > 0) {
+            setResults((prev) => [...prev, ...nextSlice]);
+            setPage(pageNum);
+          }
+          setHasMore(allMergedResults.length > nextStartIndex + nextSlice.length);
+        }
         return;
       }
 
+      let res;
       if (skill === 'writing') {
-        const res = await getWritingHistory({ limit: 100 });
-        setResults((res.data.data || []).map(normalizeWritingItem));
-        return;
+        res = await getWritingHistory({ page: pageNum, limit: 10 });
+      } else if (skill === 'speaking') {
+        res = await getSpeakingHistory({ page: pageNum, limit: 10 });
+      } else {
+        res = await getMyResults({ skill, page: pageNum, limit: 10 });
       }
 
-      if (skill === 'speaking') {
-        const res = await getSpeakingHistory({ limit: 100 });
-        setResults((res.data.data || []).map(normalizeSpeakingItem));
-        return;
+      const fetchedData = res.data.data || [];
+      let normalized;
+      if (skill === 'writing') {
+        normalized = fetchedData.map(normalizeWritingItem);
+      } else if (skill === 'speaking') {
+        normalized = fetchedData.map(normalizeSpeakingItem);
+      } else {
+        normalized = fetchedData.map(normalizeObjectiveItem);
       }
 
-      const res = await getMyResults({ skill, limit: 100 });
-      setResults((res.data.data || []).map(normalizeObjectiveItem));
+      if (isLoadMore) {
+        setResults((prev) => [...prev, ...normalized]);
+        setPage(pageNum);
+      } else {
+        setResults(normalized);
+        setPage(1);
+      }
+      setHasMore(fetchedData.length === 10);
     } catch (e) {
       console.error('Lỗi load history:', e.message);
-      setResults([]);
+      if (!isLoadMore) {
+        setResults([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
     }
   };
@@ -178,14 +260,29 @@ export default function HistoryScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      fetchResults(activeTab);
+      fetchResults(activeTab, 1, false);
     }, [activeTab])
   );
 
   const handleTabChange = (tab) => {
+    if (tab === activeTab) return;
     setActiveTab(tab);
-    setLoading(true);
-    fetchResults(tab);
+  };
+
+  const handleLoadMore = () => {
+    if (loading || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    fetchResults(activeTab, page + 1, true);
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    const activeColor = getDynamicMeta(activeTab, isDarkMode).color;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={activeColor} />
+      </View>
+    );
   };
 
   const openHistoryItem = async (item) => {
@@ -197,6 +294,7 @@ export default function HistoryScreen({ navigation }) {
           screen: 'MockTestResult',
           params: {
             result: item,
+            fromHistory: true,
           },
         });
         return;
@@ -266,7 +364,7 @@ export default function HistoryScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => {
-    const meta = SKILL_META[item.skill] || SKILL_META.listening;
+    const meta = getDynamicMeta(item.skill, isDarkMode);
     const scoreLabel =
       item.skill === 'mocktest'
         ? `Overall ${Number(item.overallBand || 0).toFixed(1)}/9.0`
@@ -288,7 +386,7 @@ export default function HistoryScreen({ navigation }) {
     return (
       <TouchableOpacity
         activeOpacity={0.88}
-        style={styles.card}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => openHistoryItem(item)}
       >
         <View style={styles.cardTop}>
@@ -298,10 +396,10 @@ export default function HistoryScreen({ navigation }) {
 
           <View style={styles.cardMain}>
             <View style={styles.titleRow}>
-              <Text style={styles.testTitle} numberOfLines={1}>
+              <Text style={[styles.testTitle, { color: theme.text }]} numberOfLines={1}>
                 {item.testTitle || item.title || meta.label}
               </Text>
-              <View style={[styles.bandBadge, { backgroundColor: BAND_COLOR(item.bandScore) }]}>
+              <View style={[styles.bandBadge, { backgroundColor: BAND_COLOR(item.bandScore, isDarkMode) }]}>
                 <Text style={styles.bandText}>
                   {typeof item.bandScore === 'number'
                     ? item.bandScore.toFixed(1)
@@ -314,15 +412,15 @@ export default function HistoryScreen({ navigation }) {
               <View style={[styles.skillChip, { backgroundColor: meta.light }]}>
                 <Text style={[styles.skillChipText, { color: meta.color }]}>{meta.label}</Text>
               </View>
-              <Text style={styles.metaText}>{secondLine}</Text>
+              <Text style={[styles.metaText, { color: theme.textSecondary }]}>{secondLine}</Text>
             </View>
 
-            <Text style={styles.subMetaText}>{formatDateTime(item.dateValue)}</Text>
+            <Text style={[styles.subMetaText, { color: theme.placeholder }]}>{formatDateTime(item.dateValue)}</Text>
           </View>
         </View>
 
-        <View style={styles.cardFooter}>
-          <Text style={styles.scoreText}>{scoreLabel}</Text>
+        <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
+          <Text style={[styles.scoreText, { color: theme.textSecondary }]}>{scoreLabel}</Text>
           <View style={styles.reviewBtn}>
             {openingId === itemId ? (
               <ActivityIndicator size="small" color={meta.color} />
@@ -339,14 +437,23 @@ export default function HistoryScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.hero}>
-        <View style={styles.heroIcon}>
-          <Ionicons name="bar-chart" size={26} color="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
+      <View style={[styles.headerBar, { backgroundColor: theme.background }]}>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('ProfileMain')}>
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerBarTitle, { color: theme.text }]}>Lịch sử làm bài</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <View style={[styles.hero, { backgroundColor: isDarkMode ? theme.card : '#263238', borderWidth: isDarkMode ? 1 : 0, borderColor: theme.border }]}>
+        <View style={[styles.heroIcon, { backgroundColor: isDarkMode ? theme.background : 'rgba(255,255,255,0.14)' }]}>
+          <Ionicons name="bar-chart" size={26} color={isDarkMode ? theme.text : '#fff'} />
         </View>
         <View style={styles.heroTextWrap}>
-          <Text style={styles.headerTitle}>Lịch sử làm bài</Text>
-          <Text style={styles.headerSub}>
+          <Text style={[styles.headerTitle, { color: isDarkMode ? theme.text : '#fff' }]}>Lịch sử làm bài</Text>
+          <Text style={[styles.headerSub, { color: isDarkMode ? theme.textSecondary : '#CFD8DC' }]}>
             Có thể lọc riêng các lần thi thử 4 kỹ năng hoặc từng kỹ năng lẻ.
           </Text>
         </View>
@@ -355,21 +462,25 @@ export default function HistoryScreen({ navigation }) {
       <View style={styles.tabs}>
         {SKILL_TABS.map((tab) => {
           const active = activeTab === tab.key;
+          const meta = getDynamicMeta(tab.key, isDarkMode);
           return (
             <TouchableOpacity
               key={tab.key}
               style={[
                 styles.tab,
-                active && { backgroundColor: tab.color, borderColor: tab.color },
+                {
+                  backgroundColor: active ? meta.color : theme.card,
+                  borderColor: active ? meta.color : theme.border,
+                },
               ]}
               onPress={() => handleTabChange(tab.key)}
             >
               <Ionicons
                 name={active ? tab.icon : `${tab.icon}-outline`}
                 size={16}
-                color={active ? '#fff' : tab.color}
+                color={active ? (isDarkMode ? '#121212' : '#fff') : meta.color}
               />
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
+              <Text style={[styles.tabText, { color: active ? (isDarkMode ? '#121212' : '#fff') : theme.textSecondary }]}>{meta.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -377,7 +488,7 @@ export default function HistoryScreen({ navigation }) {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#455A64" />
+          <ActivityIndicator size="large" color={isDarkMode ? '#64B5F6' : '#1565C0'} />
         </View>
       ) : (
         <FlatList
@@ -390,15 +501,20 @@ export default function HistoryScreen({ navigation }) {
               refreshing={refreshing}
               onRefresh={() => {
                 setRefreshing(true);
-                fetchResults(activeTab);
+                fetchResults(activeTab, 1, false);
               }}
+              tintColor={theme.text}
+              colors={[isDarkMode ? '#64B5F6' : '#1565C0']}
             />
           }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.15}
+          ListFooterComponent={renderFooter}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Ionicons name="albums-outline" size={54} color="#B0BEC5" style={{ marginBottom: 12 }} />
-              <Text style={styles.emptyText}>Chưa có bài nào trong mục này</Text>
-              <Text style={styles.emptyHint}>Làm một bài mới rồi quay lại đây để xem lịch sử.</Text>
+              <Ionicons name="albums-outline" size={54} color={theme.placeholder} style={{ marginBottom: 12 }} />
+              <Text style={[styles.emptyText, { color: theme.text }]}>Chưa có bài nào trong mục này</Text>
+              <Text style={[styles.emptyHint, { color: theme.textSecondary }]}>Làm một bài mới rồi quay lại đây để xem lịch sử.</Text>
             </View>
           }
         />
@@ -409,6 +525,17 @@ export default function HistoryScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 10 : 0,
+    paddingBottom: 10,
+    backgroundColor: '#F5F7FA',
+  },
+  headerBarTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   hero: {
     margin: 16,
     marginBottom: 12,
@@ -516,4 +643,9 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems: 'center', paddingTop: 72, paddingHorizontal: 24 },
   emptyText: { fontSize: 17, fontWeight: '800', color: '#455A64' },
   emptyHint: { color: '#90A4AE', fontSize: 13, marginTop: 8, textAlign: 'center', lineHeight: 18 },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

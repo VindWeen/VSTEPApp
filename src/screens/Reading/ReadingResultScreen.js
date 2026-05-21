@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getReadingAnswers, getReadingDetail, submitResult } from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 
 function ScoreCircle({ correct, total }) {
+  const { isDarkMode, theme } = useTheme();
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
   const getLevel = () => {
@@ -28,21 +30,21 @@ function ScoreCircle({ correct, total }) {
   return (
     <View style={styles.scoreCircleContainer}>
       <View style={styles.scoreCircleBg}>
-        <View style={styles.scoreCircle}>
-          <Text style={styles.scoreCircleNum}>{correct}/{total}</Text>
-          <Text style={styles.scoreCircleLabel}>Điểm số</Text>
+        <View style={[styles.scoreCircle, { borderColor: isDarkMode ? '#81C784' : '#2E7D32', backgroundColor: theme.card }]}>
+          <Text style={[styles.scoreCircleNum, { color: theme.text }]}>{correct}/{total}</Text>
+          <Text style={[styles.scoreCircleLabel, { color: theme.textSecondary }]}>Điểm số</Text>
         </View>
-        <View style={styles.starBadge}>
+        <View style={[styles.starBadge, { backgroundColor: isDarkMode ? '#334155' : '#FFF3E0' }]}>
           <Ionicons name="star" size={16} color="#F59E0B" />
         </View>
       </View>
       <Text style={styles.percentText}>
-        <Text style={styles.percentNum}>{pct}%</Text>
-        <Text style={styles.percentLabel}> {label}</Text>
+        <Text style={[styles.percentNum, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>{pct}%</Text>
+        <Text style={[styles.percentLabel, { color: theme.text }]}> {label}</Text>
       </Text>
       <View style={styles.starsRow}>
         {[0, 1, 2].map((i) => (
-          <Ionicons key={i} name="star" size={20} color={i < stars ? '#F59E0B' : '#E0E0E0'} />
+          <Ionicons key={i} name="star" size={20} color={i < stars ? '#F59E0B' : (isDarkMode ? '#334155' : '#E0E0E0')} />
         ))}
       </View>
     </View>
@@ -50,32 +52,41 @@ function ScoreCircle({ correct, total }) {
 }
 
 function StatCard({ icon, value, label, color }) {
+  const { isDarkMode, theme } = useTheme();
   return (
-    <View style={[styles.statCard, { backgroundColor: `${color}15` }]}>
-      <View style={[styles.statIconBg, { backgroundColor: `${color}25` }]}>
+    <View style={[
+      styles.statCard,
+      {
+        backgroundColor: isDarkMode ? theme.card : `${color}15`,
+        borderWidth: isDarkMode ? 1 : 0,
+        borderColor: theme.border,
+      }
+    ]}>
+      <View style={[styles.statIconBg, { backgroundColor: isDarkMode ? '#1E293B' : `${color}25` }]}>
         <Ionicons name={icon} size={20} color={color} />
       </View>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
     </View>
   );
 }
 
 function ProgressBar({ label, correct, total, color }) {
+  const { isDarkMode, theme } = useTheme();
   const pct = total > 0 ? (correct / total) * 100 : 0;
   return (
     <View style={styles.progressItem}>
       <View style={styles.progressHeader}>
         <View style={styles.progressLabelRow}>
           <View style={[styles.progressDot, { backgroundColor: color }]} />
-          <Text style={styles.progressLabel}>{label}</Text>
+          <Text style={[styles.progressLabel, { color: theme.text }]}>{label}</Text>
         </View>
         <Text style={[styles.progressScore, { color }]}>{correct}/{total} đúng</Text>
       </View>
-      <View style={styles.progressBarBg}>
+      <View style={[styles.progressBarBg, { backgroundColor: isDarkMode ? '#222' : '#F0F0F0' }]}>
         <View style={[styles.progressBarFill, { width: `${pct}%`, backgroundColor: color }]} />
       </View>
-      <Text style={styles.progressPct}>{Math.round(pct)}%</Text>
+      <Text style={[styles.progressPct, { color: theme.textSecondary }]}>{Math.round(pct)}%</Text>
     </View>
   );
 }
@@ -87,6 +98,7 @@ const formatTime = (seconds = 0) => {
 };
 
 export default function ReadingResultScreen({ route, navigation }) {
+  const { isDarkMode, theme } = useTheme();
   const { testId, answers, test, passages = [], timeTaken, historyResult, fromHistory, fromFullMock } = route.params;
   const [correctMap, setCorrectMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -151,11 +163,12 @@ export default function ReadingResultScreen({ route, navigation }) {
     }
 
     if (fromHistory) {
+      navigation.popToTop();
       navigation.getParent()?.navigate('Profile', { screen: 'History' });
       return;
     }
 
-    navigation.navigate('ReadingList');
+    navigation.popToTop();
   };
 
   const allQuestions = resolvedPassages.flatMap((part) => part.questions || []);
@@ -189,26 +202,26 @@ export default function ReadingResultScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-        <Text style={styles.loadingText}>Đang chấm điểm...</Text>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={isDarkMode ? '#81C784' : '#2E7D32'} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Đang chấm điểm...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? theme.background : '#F5F7FA'} />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Kết quả Đọc</Text>
-        <TouchableOpacity onPress={navigateAfterReview} style={styles.closeBtn}>
-          <Ionicons name="close" size={20} color="#1A1A2E" />
+      <View style={[styles.header, { backgroundColor: isDarkMode ? theme.background : '#F5F7FA' }]}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Kết quả Đọc</Text>
+        <TouchableOpacity onPress={navigateAfterReview} style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#333' : '#F0F0F0' }]}>
+          <Ionicons name="close" size={20} color={theme.text} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.scoreCard}>
+        <View style={[styles.scoreCard, { backgroundColor: isDarkMode ? '#1E293B' : '#E8F5E9' }]}>
           <ScoreCircle correct={correct} total={total} />
         </View>
 
@@ -219,26 +232,32 @@ export default function ReadingResultScreen({ route, navigation }) {
             icon="time-outline"
             value={formatTime(fromHistory ? historyResult?.duration || 0 : timeTaken || 0)}
             label="Thời gian"
-            color="#757575"
+            color={isDarkMode ? '#90A4AE' : '#757575'}
           />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Phân tích theo phần</Text>
+        <View style={[styles.section, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Phân tích theo phần</Text>
           {passageBreakdowns.map((item, index) => (
             <ProgressBar key={index} {...item} />
           ))}
         </View>
 
         {weakest ? (
-          <View style={styles.tipCard}>
-            <View style={styles.tipIcon}>
-              <Ionicons name="bulb" size={18} color="#E65100" />
+          <View style={[
+            styles.tipCard,
+            {
+              backgroundColor: isDarkMode ? '#2D1B0F' : '#FFF3E0',
+              borderColor: isDarkMode ? '#4D2A10' : '#FFE0B2',
+            }
+          ]}>
+            <View style={[styles.tipIcon, { backgroundColor: isDarkMode ? '#4D2A10' : '#FFE0B2' }]}>
+              <Ionicons name="bulb" size={18} color={isDarkMode ? '#FF9800' : '#E65100'} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.tipTitle}>Cần cải thiện</Text>
-              <Text style={styles.tipText}>
-                Phần <Text style={styles.tipHighlight}>{weakest.label}</Text> đang là phần yếu nhất.
+              <Text style={[styles.tipTitle, { color: isDarkMode ? '#FF9800' : '#E65100' }]}>Cần cải thiện</Text>
+              <Text style={[styles.tipText, { color: isDarkMode ? '#FFE0B2' : '#5D4037' }]}>
+                Phần <Text style={[styles.tipHighlight, { color: isDarkMode ? '#FF9800' : '#E65100' }]}>{weakest.label}</Text> đang là phần yếu nhất.
               </Text>
             </View>
           </View>
@@ -246,33 +265,33 @@ export default function ReadingResultScreen({ route, navigation }) {
 
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={styles.actionBtnOutline}
+            style={[styles.actionBtnOutline, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => setShowExplanation(!showExplanation)}
           >
-            <Ionicons name={showExplanation ? 'bulb' : 'bulb-outline'} size={18} color="#2E7D32" />
-            <Text style={styles.actionBtnOutlineText}>
+            <Ionicons name={showExplanation ? 'bulb' : 'bulb-outline'} size={18} color={isDarkMode ? '#81C784' : '#2E7D32'} />
+            <Text style={[styles.actionBtnOutlineText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>
               {showExplanation ? 'Ẩn giải thích' : 'Xem giải thích'}
             </Text>
           </TouchableOpacity>
           {!fromHistory && !fromFullMock ? (
             <TouchableOpacity
-              style={styles.actionBtnOutline}
+              style={[styles.actionBtnOutline, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => navigation.navigate('ReadingDetail', { test: resolvedTest })}
             >
-              <Ionicons name="refresh-outline" size={18} color="#1A1A2E" />
-              <Text style={[styles.actionBtnOutlineText, { color: '#1A1A2E' }]}>Làm lại</Text>
+              <Ionicons name="refresh-outline" size={18} color={theme.text} />
+              <Text style={[styles.actionBtnOutlineText, { color: theme.text }]}>Làm lại</Text>
             </TouchableOpacity>
           ) : null}
         </View>
 
         {showExplanation ? (
           <View style={styles.explanationSection}>
-            <Text style={styles.explanationSectionTitle}>Chi tiết đáp án</Text>
+            <Text style={[styles.explanationSectionTitle, { color: theme.text }]}>Chi tiết đáp án</Text>
             {resolvedPassages.map((part, partIndex) => (
-              <View key={partIndex} style={styles.passageExplanationCard}>
-                <View style={styles.passageExplanationHeader}>
-                  <Text style={styles.passageExplanationTag}>{part.partTitle || `Phần ${partIndex + 1}`}</Text>
-                  <Text style={styles.passageExplanationTitle}>{part.passageTitle || part.title || ''}</Text>
+              <View key={partIndex} style={[styles.passageExplanationCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <View style={[styles.passageExplanationHeader, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.passageExplanationTag, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>{part.partTitle || `Phần ${partIndex + 1}`}</Text>
+                  <Text style={[styles.passageExplanationTitle, { color: theme.text }]}>{part.passageTitle || part.title || ''}</Text>
                 </View>
 
                 {(part.questions || []).map((q) => {
@@ -284,7 +303,12 @@ export default function ReadingResultScreen({ route, navigation }) {
                   return (
                     <View
                       key={q.questionNumber}
-                      style={[styles.answerRow, isCorrect ? styles.answerRowCorrect : styles.answerRowWrong]}
+                      style={[
+                        styles.answerRow,
+                        isCorrect
+                          ? (isDarkMode ? { backgroundColor: '#1B2E1C', borderColor: '#2E4C30' } : styles.answerRowCorrect)
+                          : (isDarkMode ? { backgroundColor: '#2E1B1B', borderColor: '#4C2E2E' } : styles.answerRowWrong)
+                      ]}
                     >
                       <View
                         style={[
@@ -296,11 +320,13 @@ export default function ReadingResultScreen({ route, navigation }) {
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                          <Text style={styles.answerRowLabel}>Câu {q.questionNumber}</Text>
+                          <Text style={[styles.answerRowLabel, { color: theme.text }]}>Câu {q.questionNumber}</Text>
                           <Text
                             style={[
                               styles.answerText,
-                              isCorrect ? styles.answerTextCorrect : styles.answerTextWrong,
+                              isCorrect
+                                ? [styles.answerTextCorrect, isDarkMode && { color: '#81C784' }]
+                                : [styles.answerTextWrong, isDarkMode && { color: '#E57373' }],
                             ]}
                           >
                             Đáp án: {correctAns} {isCorrect ? '✓' : '✗'}
@@ -308,21 +334,21 @@ export default function ReadingResultScreen({ route, navigation }) {
                         </View>
 
                         {!isCorrect ? (
-                          <Text style={styles.userAnsText}>Bạn chọn: {userAns || 'Không làm'}</Text>
+                          <Text style={[styles.userAnsText, isDarkMode && { color: '#E57373' }]}>Bạn chọn: {userAns || 'Không làm'}</Text>
                         ) : null}
 
-                        <View style={styles.fullExplanationContainer}>
-                          {q.questionText ? <Text style={styles.fullQuestionText}>{q.questionText}</Text> : null}
+                        <View style={[styles.fullExplanationContainer, { borderTopColor: theme.border }]}>
+                          {q.questionText ? <Text style={[styles.fullQuestionText, { color: theme.text }]}>{q.questionText}</Text> : null}
                           {q.options && correctAns ? (
                             <View style={styles.fullAnswerRow}>
-                              <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
-                              <Text style={styles.fullAnswerText}>{correctAns}. {q.options[correctAns]}</Text>
+                              <Ionicons name="checkmark-circle" size={16} color={isDarkMode ? '#81C784' : '#2E7D32'} />
+                              <Text style={[styles.fullAnswerText, { color: isDarkMode ? '#81C784' : '#2E7D32' }]}>{correctAns}. {q.options[correctAns]}</Text>
                             </View>
                           ) : null}
                           {correctData?.explanation ? (
-                            <View style={styles.explanationBox}>
-                              <Ionicons name="bulb-outline" size={16} color="#F57C00" style={{ marginTop: 2 }} />
-                              <Text style={styles.explanationText}>{correctData.explanation}</Text>
+                            <View style={[styles.explanationBox, { backgroundColor: isDarkMode ? '#2A1F10' : '#FFF3E0' }]}>
+                              <Ionicons name="bulb-outline" size={16} color={isDarkMode ? '#FFB74D' : '#F57C00'} style={{ marginTop: 2 }} />
+                              <Text style={[styles.explanationText, { color: isDarkMode ? '#FFB74D' : '#E65100' }]}>{correctData.explanation}</Text>
                             </View>
                           ) : null}
                         </View>
@@ -335,7 +361,7 @@ export default function ReadingResultScreen({ route, navigation }) {
           </View>
         ) : null}
 
-        <TouchableOpacity style={styles.homeBtn} onPress={navigateAfterReview}>
+        <TouchableOpacity style={[styles.homeBtn, { backgroundColor: isDarkMode ? '#388E3C' : '#2E7D32' }]} onPress={navigateAfterReview}>
           <Ionicons name="home" size={18} color="#fff" />
           <Text style={styles.homeBtnText}>Về trang kỹ năng đọc</Text>
         </TouchableOpacity>

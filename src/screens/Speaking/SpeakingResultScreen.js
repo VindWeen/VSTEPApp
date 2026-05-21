@@ -11,25 +11,38 @@ import {
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
-function ScoreSegments({ value, max = 5 }) {
+function ScoreSegments({ value, max = 5, color }) {
+  const { theme, isDarkMode } = useTheme();
   const segments = 10;
   const filled = Math.round((value / max) * segments);
+  const activeColor = color || (isDarkMode ? '#E040FB' : '#6A1B9A');
   return (
     <View style={styles.segRow}>
       {Array.from({ length: segments }).map((_, i) => (
-        <View key={i} style={[styles.seg, i < filled ? styles.segFilled : styles.segEmpty]} />
+        <View
+          key={i}
+          style={[
+            styles.seg,
+            i < filled
+              ? { backgroundColor: activeColor }
+              : { backgroundColor: isDarkMode ? '#333333' : '#E0E0E0' }
+          ]}
+        />
       ))}
     </View>
   );
 }
 
 function CriteriaCard({ label, value }) {
+  const { theme, isDarkMode } = useTheme();
+  const purpleAccent = isDarkMode ? '#E040FB' : '#6A1B9A';
   return (
-    <View style={styles.criteriaCard}>
-      <Text style={styles.criteriaLabel}>{label}</Text>
-      <Text style={styles.criteriaValue}>{value?.toFixed(1) ?? '-'}</Text>
-      <ScoreSegments value={value || 0} />
+    <View style={[styles.criteriaCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <Text style={[styles.criteriaLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.criteriaValue, { color: theme.text }]}>{value?.toFixed(1) ?? '-'}</Text>
+      <ScoreSegments value={value || 0} color={purpleAccent} />
     </View>
   );
 }
@@ -58,9 +71,16 @@ const normalizeList = (items = []) =>
     .filter(Boolean);
 
 function FeedbackList({ title, items, icon, tone = 'default' }) {
+  const { theme, isDarkMode } = useTheme();
   const normalizedItems = useMemo(() => normalizeList(items), [items]);
 
   if (!normalizedItems.length) return null;
+
+  const iconColor = tone === 'positive'
+    ? (isDarkMode ? '#81C784' : '#2E7D32')
+    : tone === 'warning'
+    ? (isDarkMode ? '#FFB74D' : '#EF6C00')
+    : (isDarkMode ? '#E040FB' : '#6A1B9A');
 
   return (
     <View style={styles.feedbackGroup}>
@@ -68,14 +88,14 @@ function FeedbackList({ title, items, icon, tone = 'default' }) {
         <Ionicons
           name={icon}
           size={16}
-          color={tone === 'positive' ? '#2E7D32' : tone === 'warning' ? '#EF6C00' : '#6A1B9A'}
+          color={iconColor}
         />
-        <Text style={styles.feedbackGroupTitle}>{title}</Text>
+        <Text style={[styles.feedbackGroupTitle, { color: theme.text }]}>{title}</Text>
       </View>
       {normalizedItems.map((item, index) => (
         <View key={`${title}-${index}`} style={styles.bulletRow}>
-          <Text style={styles.bulletMark}>•</Text>
-          <Text style={styles.bulletText}>{item}</Text>
+          <Text style={[styles.bulletMark, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>•</Text>
+          <Text style={[styles.bulletText, { color: theme.text }]}>{item}</Text>
         </View>
       ))}
     </View>
@@ -83,15 +103,17 @@ function FeedbackList({ title, items, icon, tone = 'default' }) {
 }
 
 function PartCriteriaRow({ label, value }) {
+  const { theme } = useTheme();
   return (
-    <View style={styles.partCriteriaRow}>
-      <Text style={styles.partCriteriaLabel}>{label}</Text>
-      <Text style={styles.partCriteriaValue}>{typeof value === 'number' ? value.toFixed(1) : '-'}</Text>
+    <View style={[styles.partCriteriaRow, { borderTopColor: theme.border }]}>
+      <Text style={[styles.partCriteriaLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.partCriteriaValue, { color: theme.text }]}>{typeof value === 'number' ? value.toFixed(1) : '-'}</Text>
     </View>
   );
 }
 
 export default function SpeakingResultScreen({ route, navigation }) {
+  const { theme, isDarkMode } = useTheme();
   const { result, test, fromHistory, fromFullMock } = route.params;
   const [expandedPartKey, setExpandedPartKey] = useState(null);
   const [playingPartKey, setPlayingPartKey] = useState(null);
@@ -125,11 +147,12 @@ export default function SpeakingResultScreen({ route, navigation }) {
     }
 
     if (fromHistory) {
+      navigation.popToTop();
       navigation.getParent()?.navigate('Profile', { screen: 'History' });
       return;
     }
 
-    navigation.navigate('SpeakingList');
+    navigation.popToTop();
   };
 
   const togglePartPlayback = async (partKey, audioUrl) => {
@@ -177,34 +200,36 @@ export default function SpeakingResultScreen({ route, navigation }) {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+  const purpleAccent = isDarkMode ? '#E040FB' : '#6A1B9A';
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={navigateAfterReview}>
-          <Ionicons name="close" size={20} color="#1A1A2E" />
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.card} />
+
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F5F5F5' }]} onPress={navigateAfterReview}>
+          <Ionicons name="close" size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kết quả Speaking</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Kết quả Speaking</Text>
         <View style={styles.shareBtn} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.scoreSection}>
-          <View style={styles.bandCircle}>
-            <Text style={styles.bandNum}>{band?.toFixed(1) ?? '-'}</Text>
-            <Text style={styles.bandLabel}>BAND SCORE</Text>
+        <View style={[styles.scoreSection, { backgroundColor: theme.card, marginBottom: 16 }]}>
+          <View style={[styles.bandCircle, { borderColor: purpleAccent, backgroundColor: isDarkMode ? '#25162C' : '#F3E5F5' }]}>
+            <Text style={[styles.bandNum, { color: purpleAccent }]}>{band?.toFixed(1) ?? '-'}</Text>
+            <Text style={[styles.bandLabel, { color: isDarkMode ? '#CE93D8' : '#9575CD' }]}>BAND SCORE</Text>
           </View>
-          <Text style={styles.testTitle}>{test?.title || result?.testTitle || 'Speaking Test'}</Text>
+          <Text style={[styles.testTitle, { color: theme.text }]}>{test?.title || result?.testTitle || 'Speaking Test'}</Text>
           {typeof result?.totalAudioDuration === 'number' ? (
-            <Text style={styles.testMeta}>Tổng thời lượng: {formatTime(result.totalAudioDuration)}</Text>
+            <Text style={[styles.testMeta, { color: theme.textSecondary }]}>Tổng thời lượng: {formatTime(result.totalAudioDuration)}</Text>
           ) : null}
         </View>
 
         {!!partResults.length && (
-          <View style={styles.partCard}>
-            <Text style={styles.partCardTitle}>Tổng hợp theo part</Text>
-            <Text style={styles.partCardSubtitle}>
+          <View style={[styles.partCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.partCardTitle, { color: theme.text }]}>Tổng hợp theo part</Text>
+            <Text style={[styles.partCardSubtitle, { color: theme.textSecondary }]}>
               Mở từng part để xem transcript và nhận xét chi tiết.
             </Text>
 
@@ -214,55 +239,55 @@ export default function SpeakingResultScreen({ route, navigation }) {
               const partFeedback = part.aiFeedback || {};
 
               return (
-                <View key={partKey} style={styles.partItem}>
+                <View key={partKey} style={[styles.partItem, { borderTopColor: theme.border }]}>
                   <TouchableOpacity style={styles.partRow} onPress={() => togglePart(partKey)}>
                     <View style={styles.partRowLeft}>
-                      <Text style={styles.partName}>{part.partType}</Text>
-                      <Text style={styles.partMeta}>
+                      <Text style={[styles.partName, { color: theme.text }]}>{part.partType}</Text>
+                      <Text style={[styles.partMeta, { color: theme.textSecondary }]}>
                         {formatTime(part.audioDuration)} • Band {partFeedback.band?.toFixed(1) ?? '-'}
                       </Text>
                     </View>
                     <Ionicons
                       name={expanded ? 'chevron-up' : 'chevron-down'}
                       size={18}
-                      color="#6A1B9A"
+                      color={purpleAccent}
                     />
                   </TouchableOpacity>
 
                   {expanded ? (
                     <View style={styles.partDetail}>
                       {part.prompt ? (
-                        <View style={styles.detailBlock}>
-                          <Text style={styles.detailLabel}>Đề bài</Text>
-                          <Text style={styles.detailText}>{part.prompt}</Text>
+                        <View style={[styles.detailBlock, { backgroundColor: isDarkMode ? '#252525' : '#FAFAFA' }]}>
+                          <Text style={[styles.detailLabel, { color: purpleAccent }]}>Đề bài</Text>
+                          <Text style={[styles.detailText, { color: theme.text }]}>{part.prompt}</Text>
                         </View>
                       ) : null}
 
-                      <View style={styles.detailBlock}>
-                        <Text style={styles.detailLabel}>Transcript</Text>
-                        <Text style={styles.transcriptText}>
+                      <View style={[styles.detailBlock, { backgroundColor: isDarkMode ? '#252525' : '#FAFAFA' }]}>
+                        <Text style={[styles.detailLabel, { color: purpleAccent }]}>Transcript</Text>
+                        <Text style={[styles.transcriptText, { color: theme.text }]}>
                           {normalizeSentence(part.transcript) || 'Chưa có transcript.'}
                         </Text>
                       </View>
 
                       {part.audioUrl ? (
                         <TouchableOpacity
-                          style={styles.audioBtn}
+                          style={[styles.audioBtn, { backgroundColor: isDarkMode ? '#25162C' : '#F3E5F5' }]}
                           onPress={() => togglePartPlayback(partKey, part.audioUrl)}
                         >
                           <Ionicons
                             name={playingPartKey === partKey ? 'pause-circle' : 'play-circle'}
                             size={18}
-                            color="#6A1B9A"
+                            color={purpleAccent}
                           />
-                          <Text style={styles.audioBtnText}>
+                          <Text style={[styles.audioBtnText, { color: purpleAccent }]}>
                             {playingPartKey === partKey ? 'Tạm dừng audio của part này' : 'Nghe lại audio của part này'}
                           </Text>
                         </TouchableOpacity>
                       ) : null}
 
-                      <View style={styles.partCriteriaCard}>
-                        <Text style={styles.detailLabel}>Điểm từng tiêu chí</Text>
+                      <View style={[styles.partCriteriaCard, { backgroundColor: isDarkMode ? '#252525' : '#FAFAFA' }]}>
+                        <Text style={[styles.detailLabel, { color: purpleAccent }]}>Điểm từng tiêu chí</Text>
                         <PartCriteriaRow label="Pronunciation" value={partFeedback.pronunciation} />
                         <PartCriteriaRow label="Fluency" value={partFeedback.fluency} />
                         <PartCriteriaRow label="Lexical" value={partFeedback.lexical} />
@@ -301,8 +326,8 @@ export default function SpeakingResultScreen({ route, navigation }) {
           <CriteriaCard label="GRAMMAR" value={grammar || 0} />
         </View>
 
-        <View style={styles.feedbackContainer}>
-          <Text style={styles.feedbackTitle}>Đánh giá tổng quan</Text>
+        <View style={[styles.feedbackContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.feedbackTitle, { color: theme.text }]}>Đánh giá tổng quan</Text>
           <FeedbackList
             title="Ưu điểm"
             items={strengths}
@@ -322,7 +347,7 @@ export default function SpeakingResultScreen({ route, navigation }) {
           />
         </View>
 
-        <TouchableOpacity style={styles.newBtn} onPress={navigateAfterReview}>
+        <TouchableOpacity style={[styles.newBtn, { backgroundColor: purpleAccent }]} onPress={navigateAfterReview}>
           <Text style={styles.newBtnText}>Về trang kỹ năng nói</Text>
         </TouchableOpacity>
       </ScrollView>

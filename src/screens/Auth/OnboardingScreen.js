@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -12,6 +13,7 @@ export default function OnboardingScreen() {
   const navigation = useNavigation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedLevel, setSelectedLevel] = useState('B1');
+  const { theme, isDarkMode } = useTheme();
 
   const handleNext = async () => {
     if (currentIndex < 2) {
@@ -36,6 +38,7 @@ export default function OnboardingScreen() {
   if (currentIndex === 0) {
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#1E88E5" />
         <LinearGradient colors={['#1E88E5', '#1565C0', '#0D47A1']} style={styles.container}>
           <SafeAreaView style={styles.safeArea}>
             <View style={styles.slide1Content}>
@@ -82,13 +85,18 @@ export default function OnboardingScreen() {
             </View>
             
             {/* Bottom Sheet */}
-            <View style={styles.bottomCard}>
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleNext}>
-                <Text style={styles.primaryBtnText}>Bắt đầu</Text>
-                <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+            <View style={[styles.bottomCard, { backgroundColor: theme.card }]}>
+              <TouchableOpacity 
+                style={[styles.primaryBtn, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
+                onPress={handleNext}
+              >
+                <Text style={[styles.primaryBtnText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Bắt đầu</Text>
+                <Ionicons name="arrow-forward" size={20} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 8 }} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => navigation.navigate('Auth', { screen: 'Login' })}>
-                <Text style={styles.loginLink}>Đã có tài khoản? <Text style={styles.loginLinkBold}>Đăng nhập</Text></Text>
+                <Text style={[styles.loginLink, { color: theme.textSecondary }]}>
+                  Đã có tài khoản? <Text style={[styles.loginLinkBold, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>Đăng nhập</Text>
+                </Text>
               </TouchableOpacity>
             </View>
           </SafeAreaView>
@@ -97,26 +105,41 @@ export default function OnboardingScreen() {
     );
   }
 
+  const levels = [
+    { id: 'A2', title: 'Sơ cấp', desc: 'Ngữ pháp cơ bản, từ vựng đơn giản', color: '#4CAF50', bg: isDarkMode ? '#4CAF5022' : '#E8F5E9' },
+    { id: 'B1', title: 'Trung cấp', desc: 'Giao tiếp hàng ngày, hiểu văn bản đơn giản', color: isDarkMode ? '#64B5F6' : '#1565C0', bg: isDarkMode ? '#1565C022' : '#E3F2FD' },
+    { id: 'B2', title: 'Trên trung cấp', desc: 'Thảo luận phức tạp, đọc tài liệu chuyên ngành', color: '#F57C00', bg: isDarkMode ? '#F57C0022' : '#FFF3E0' },
+    { id: 'C1', title: 'Nâng cao', desc: 'Thành thạo, gần như người bản ngữ', color: '#9C27B0', bg: isDarkMode ? '#9C27B022' : '#F3E5F5' },
+  ];
+
   return (
-    <SafeAreaView style={styles.safeAreaWhite}>
+    <SafeAreaView style={[styles.safeAreaWhite, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
+      
       {/* HEADER */}
       {currentIndex === 1 ? (
         <View style={styles.headerSlide2}>
           <View style={styles.headerLogo}>
-            <View style={styles.smallLogoBg}>
-              <MaterialCommunityIcons name="school" size={16} color="#FFF" />
+            <View style={[styles.smallLogoBg, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]}>
+              <MaterialCommunityIcons name="school" size={16} color={isDarkMode ? '#121212' : '#FFF'} />
             </View>
-            <Text style={styles.headerLogoText}>VSTEP</Text>
+            <Text style={[styles.headerLogoText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>VSTEP</Text>
           </View>
-          <TouchableOpacity style={styles.skipPillBtn} onPress={handleSkip}>
-            <Text style={styles.skipPillText}>Bỏ qua</Text>
+          <TouchableOpacity 
+            style={[styles.skipPillBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F1F5F9' }]} 
+            onPress={handleSkip}
+          >
+            <Text style={[styles.skipPillText, { color: theme.textSecondary }]}>Bỏ qua</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.headerSlide3}>
-          <TouchableOpacity style={styles.backPillBtn} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={18} color="#1A1A1A" style={{marginRight: 4}} />
-            <Text style={styles.backPillText}>Quay lại</Text>
+          <TouchableOpacity 
+            style={[styles.backPillBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F1F5F9' }]} 
+            onPress={handleBack}
+          >
+            <Ionicons name="arrow-back" size={18} color={isDarkMode ? theme.text : '#1A1A1A'} style={{marginRight: 4}} />
+            <Text style={[styles.backPillText, { color: isDarkMode ? theme.text : '#64748B' }]}>Quay lại</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -132,8 +155,8 @@ export default function OnboardingScreen() {
               {/* Decorative small circles */}
               <View style={styles.decoCircle1} />
               <View style={styles.decoCircle2} />
-              <View style={styles.decoCircle3}>
-                <Ionicons name="help" size={10} color="#1565C0" />
+              <View style={[styles.decoCircle3, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F0F7FF' }]}>
+                <Ionicons name="help" size={10} color={isDarkMode ? '#64B5F6' : '#1565C0'} />
               </View>
             </View>
             
@@ -142,34 +165,37 @@ export default function OnboardingScreen() {
               {[...Array(9)].map((_, i) => (
                 <View key={i} style={[
                   styles.waveBar, 
-                  {height: [15, 25, 40, 25, 50, 40, 25, 15, 10][i]},
-                  i === 4 ? {backgroundColor: '#1565C0'} : null
+                  {
+                    height: [15, 25, 40, 25, 50, 40, 25, 15, 10][i],
+                    backgroundColor: isDarkMode ? '#2C2C2C' : '#93C5FD'
+                  },
+                  i === 4 ? {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'} : null
                 ]} />
               ))}
             </View>
 
-            <View style={styles.slide2TagPill}>
-              <Ionicons name="headset-outline" size={14} color="#1565C0" style={{marginRight: 6}} />
-              <Text style={styles.slide2TagText}>KỸ NĂNG NGHE</Text>
+            <View style={[styles.slide2TagPill, { backgroundColor: isDarkMode ? '#1E2C3F' : '#EFF6FF' }]}>
+              <Ionicons name="headset-outline" size={14} color={isDarkMode ? '#64B5F6' : '#1565C0'} style={{marginRight: 6}} />
+              <Text style={[styles.slide2TagText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>KỸ NĂNG NGHE</Text>
             </View>
             
-            <Text style={styles.slideTitle}>Luyện Nghe VSTEP</Text>
-            <Text style={styles.slideSubtitle}>
+            <Text style={[styles.slideTitle, { color: theme.text }]}>Luyện Nghe VSTEP</Text>
+            <Text style={[styles.slideSubtitle, { color: theme.textSecondary }]}>
               3 phần thi chuẩn format VSTEP với bài nghe thực tế, đa dạng chủ đề và phản hồi chi tiết
             </Text>
             
             <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>120+</Text>
-                <Text style={styles.statLabel}>Bài nghe</Text>
+              <View style={[styles.statBox, { backgroundColor: theme.card }]}>
+                <Text style={[styles.statValue, { color: theme.text }]}>120+</Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Bài nghe</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>3</Text>
-                <Text style={styles.statLabel}>Phần thi</Text>
+              <View style={[styles.statBox, { backgroundColor: theme.card }]}>
+                <Text style={[styles.statValue, { color: theme.text }]}>3</Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Phần thi</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>AI</Text>
-                <Text style={styles.statLabel}>Phản hồi</Text>
+              <View style={[styles.statBox, { backgroundColor: theme.card }]}>
+                <Text style={[styles.statValue, { color: theme.text }]}>AI</Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Phản hồi</Text>
               </View>
             </View>
           </View>
@@ -179,26 +205,25 @@ export default function OnboardingScreen() {
           <View style={styles.slide3Content}>
             {/* Progress Bar */}
             <View style={styles.topProgressBar}>
-              <View style={[styles.progressSegment, {backgroundColor: '#1565C0'}]} />
-              <View style={[styles.progressSegment, {backgroundColor: '#1565C0'}]} />
-              <View style={[styles.progressSegment, {backgroundColor: '#E2E8F0'}]} />
+              <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'}]} />
+              <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'}]} />
+              <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0'}]} />
             </View>
 
-            <Text style={styles.slideTitleLeft}>Bạn đang ở trình độ nào?</Text>
-            <Text style={styles.slideSubtitleLeft}>Chọn mức độ phù hợp để bắt đầu luyện tập hiệu quả nhất</Text>
+            <Text style={[styles.slideTitleLeft, { color: theme.text }]}>Bạn đang ở trình độ nào?</Text>
+            <Text style={[styles.slideSubtitleLeft, { color: theme.textSecondary }]}>Chọn mức độ phù hợp để bắt đầu luyện tập hiệu quả nhất</Text>
             
             <View style={styles.levelsContainer}>
-              {[
-                { id: 'A2', title: 'Sơ cấp', desc: 'Ngữ pháp cơ bản, từ vựng đơn giản', color: '#4CAF50', bg: '#E8F5E9' },
-                { id: 'B1', title: 'Trung cấp', desc: 'Giao tiếp hàng ngày, hiểu văn bản đơn giản', color: '#1565C0', bg: '#E3F2FD' },
-                { id: 'B2', title: 'Trên trung cấp', desc: 'Thảo luận phức tạp, đọc tài liệu chuyên ngành', color: '#F57C00', bg: '#FFF3E0' },
-                { id: 'C1', title: 'Nâng cao', desc: 'Thành thạo, gần như người bản ngữ', color: '#9C27B0', bg: '#F3E5F5' },
-              ].map((level) => {
+              {levels.map((level) => {
                 const isSelected = selectedLevel === level.id;
                 return (
                   <TouchableOpacity 
                     key={level.id} 
-                    style={[styles.levelCard, isSelected && styles.levelCardActive]}
+                    style={[
+                      styles.levelCard, 
+                      { backgroundColor: theme.card, borderColor: theme.border },
+                      isSelected && [styles.levelCardActive, { backgroundColor: isDarkMode ? '#1E2C3F' : '#F0F7FF', borderColor: isDarkMode ? '#64B5F6' : '#1565C0' }]
+                    ]}
                     onPress={() => setSelectedLevel(level.id)}
                     activeOpacity={0.8}
                   >
@@ -209,31 +234,35 @@ export default function OnboardingScreen() {
                     
                     <View style={styles.levelInfo}>
                       <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        <Text style={styles.levelTitle}>{level.title}</Text>
+                        <Text style={[styles.levelTitle, { color: theme.text }]}>{level.title}</Text>
                         <View style={[styles.miniBadge, {backgroundColor: level.bg}]}>
                           <Text style={[styles.miniBadgeText, {color: level.color}]}>{level.id}</Text>
                         </View>
                         {isSelected && (
-                          <View style={[styles.miniBadge, {backgroundColor: '#E3F2FD', marginLeft: 4}]}>
-                            <Text style={[styles.miniBadgeText, {color: '#1565C0', fontSize: 10}]}>Mục tiêu</Text>
+                          <View style={[styles.miniBadge, {backgroundColor: isDarkMode ? '#1E2C3F' : '#E3F2FD', marginLeft: 4}]}>
+                            <Text style={[styles.miniBadgeText, {color: isDarkMode ? '#64B5F6' : '#1565C0', fontSize: 10}]}>Mục tiêu</Text>
                           </View>
                         )}
                       </View>
-                      <Text style={styles.levelDesc}>{level.desc}</Text>
+                      <Text style={[styles.levelDesc, { color: theme.textSecondary }]}>{level.desc}</Text>
                     </View>
                     
                     {/* Radio Button */}
-                    <View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
-                      {isSelected && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                    <View style={[
+                      styles.radioOuter, 
+                      { borderColor: theme.border },
+                      isSelected && [styles.radioOuterSelected, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0', borderColor: isDarkMode ? '#64B5F6' : '#1565C0' }]
+                    ]}>
+                      {isSelected && <Ionicons name="checkmark" size={14} color={isDarkMode ? '#121212' : '#FFF'} />}
                     </View>
                   </TouchableOpacity>
                 );
               })}
             </View>
             
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle" size={20} color="#1565C0" style={{marginRight: 8}} />
-              <Text style={styles.infoBoxText}>Bạn có thể thay đổi trình độ bất cứ lúc nào trong phần Cài đặt</Text>
+            <View style={[styles.infoBox, { backgroundColor: isDarkMode ? '#1E2C3F' : '#EFF6FF' }]}>
+              <Ionicons name="information-circle" size={20} color={isDarkMode ? '#64B5F6' : '#1565C0'} style={{marginRight: 8}} />
+              <Text style={[styles.infoBoxText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>Bạn có thể thay đổi trình độ bất cứ lúc nào trong phần Cài đặt</Text>
             </View>
           </View>
         )}
@@ -244,27 +273,36 @@ export default function OnboardingScreen() {
         {currentIndex === 1 && (
           <>
             <View style={styles.dotsContainer}>
-              <View style={[styles.dot, styles.dotActive]} />
-              <View style={styles.dot} />
-              <View style={styles.dot} />
+              <View style={[styles.dot, { backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0' }, styles.dotActive, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} />
+              <View style={[styles.dot, { backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0' }]} />
+              <View style={[styles.dot, { backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0' }]} />
             </View>
 
             <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
-                <Text style={styles.skipBtnText}>Bỏ qua</Text>
+              <TouchableOpacity 
+                style={[styles.skipBtn, { backgroundColor: theme.card, borderColor: theme.border }]} 
+                onPress={handleSkip}
+              >
+                <Text style={[styles.skipBtnText, { color: theme.textSecondary }]}>Bỏ qua</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
-                <Text style={styles.nextBtnText}>Tiếp theo</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 6 }} />
+              <TouchableOpacity 
+                style={[styles.nextBtn, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
+                onPress={handleNext}
+              >
+                <Text style={[styles.nextBtnText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Tiếp theo</Text>
+                <Ionicons name="arrow-forward" size={18} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 6 }} />
               </TouchableOpacity>
             </View>
           </>
         )}
 
         {currentIndex === 2 && (
-          <TouchableOpacity style={styles.primaryBtnFlat} onPress={handleNext}>
-            <Text style={styles.primaryBtnFlatText}>Xác nhận</Text>
-            <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 6 }} />
+          <TouchableOpacity 
+            style={[styles.primaryBtnFlat, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
+            onPress={handleNext}
+          >
+            <Text style={[styles.primaryBtnFlatText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Xác nhận</Text>
+            <Ionicons name="arrow-forward" size={18} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 6 }} />
           </TouchableOpacity>
         )}
       </View>
@@ -275,7 +313,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, justifyContent: 'space-between' },
-  safeAreaWhite: { flex: 1, backgroundColor: '#FFFFFF', justifyContent: 'space-between' },
+  safeAreaWhite: { flex: 1, justifyContent: 'space-between' },
   
   // SLIDE 1
   slide1Content: { flex: 1, alignItems: 'center', paddingTop: 60, paddingHorizontal: 24 },
@@ -293,77 +331,77 @@ const styles = StyleSheet.create({
   chartCol: { width: 32, height: 80, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, justifyContent: 'flex-end', padding: 4 },
   chartColInner: { width: '100%', height: 24, backgroundColor: '#FFFFFF', borderRadius: 8 },
 
-  bottomCard: { backgroundColor: '#FFFFFF', padding: 24, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingBottom: Platform.OS === 'ios' ? 40 : 32 },
-  primaryBtn: { backgroundColor: '#1565C0', paddingVertical: 16, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  loginLink: { textAlign: 'center', color: '#64748B', fontSize: 14 },
-  loginLinkBold: { color: '#1565C0', fontWeight: '700' },
+  bottomCard: { padding: 24, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingBottom: Platform.OS === 'ios' ? 40 : 32 },
+  primaryBtn: { paddingVertical: 16, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  primaryBtnText: { fontSize: 16, fontWeight: '700' },
+  loginLink: { textAlign: 'center', fontSize: 14 },
+  loginLinkBold: { fontWeight: '700' },
 
   // HEADER SLIDES
   headerSlide2: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 16 },
   headerLogo: { flexDirection: 'row', alignItems: 'center' },
-  smallLogoBg: { backgroundColor: '#1565C0', width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  headerLogoText: { color: '#1565C0', fontWeight: '800', fontSize: 18 },
-  skipPillBtn: { backgroundColor: '#F1F5F9', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  skipPillText: { color: '#64748B', fontWeight: '600', fontSize: 14 },
+  smallLogoBg: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  headerLogoText: { fontWeight: '800', fontSize: 18 },
+  skipPillBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  skipPillText: { fontWeight: '600', fontSize: 14 },
 
   headerSlide3: { paddingHorizontal: 24, paddingTop: 16 },
-  backPillBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
-  backPillText: { color: '#64748B', fontWeight: '600', fontSize: 14 },
+  backPillBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
+  backPillText: { fontWeight: '600', fontSize: 14 },
 
   // COMMON CONTENT
   content: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
-  slideTitle: { fontSize: 24, fontWeight: '800', color: '#1A1A1A', textAlign: 'center', marginBottom: 12 },
-  slideSubtitle: { fontSize: 15, color: '#64748B', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
-  slideTitleLeft: { fontSize: 24, fontWeight: '800', color: '#1A1A1A', marginBottom: 8 },
-  slideSubtitleLeft: { fontSize: 15, color: '#64748B', lineHeight: 22, marginBottom: 24 },
+  slideTitle: { fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 12 },
+  slideSubtitle: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  slideTitleLeft: { fontSize: 24, fontWeight: '800', marginBottom: 8 },
+  slideSubtitleLeft: { fontSize: 15, lineHeight: 22, marginBottom: 24 },
 
   // SLIDE 2 CONTENT
   slide2Content: { alignItems: 'center' },
   bigBlueCircle: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#1A73E8', justifyContent: 'center', alignItems: 'center', marginBottom: 20, elevation: 10, shadowColor: '#1A73E8', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.3, shadowRadius: 20 },
   decoCircle1: { position: 'absolute', top: 20, left: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
   decoCircle2: { position: 'absolute', bottom: 30, right: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.4)' },
-  decoCircle3: { position: 'absolute', top: 20, right: 15, width: 24, height: 24, borderRadius: 12, backgroundColor: '#F0F7FF', justifyContent: 'center', alignItems: 'center' },
+  decoCircle3: { position: 'absolute', top: 20, right: 15, width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   soundWave: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 32, height: 50 },
-  waveBar: { width: 4, backgroundColor: '#93C5FD', borderRadius: 2 },
-  slide2TagPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginBottom: 16 },
-  slide2TagText: { color: '#1565C0', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  waveBar: { width: 4, borderRadius: 2 },
+  slide2TagPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginBottom: 16 },
+  slide2TagText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
   statsContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 12 },
-  statBox: { flex: 1, backgroundColor: '#F8FAFC', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
-  statLabel: { fontSize: 12, color: '#64748B' },
+  statBox: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  statValue: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  statLabel: { fontSize: 12 },
 
   // SLIDE 3 CONTENT
   slide3Content: { flex: 1 },
   topProgressBar: { flexDirection: 'row', gap: 8, marginBottom: 32 },
   progressSegment: { flex: 1, height: 4, borderRadius: 2 },
   levelsContainer: { gap: 12 },
-  levelCard: { flexDirection: 'row', padding: 16, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' },
-  levelCardActive: { backgroundColor: '#F0F7FF', borderColor: '#1565C0', borderWidth: 2 },
+  levelCard: { flexDirection: 'row', padding: 16, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
+  levelCardActive: { borderWidth: 2 },
   levelIconBadge: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   levelIconText: { fontSize: 18, fontWeight: '800' },
   levelInfo: { flex: 1 },
-  levelTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginRight: 8 },
+  levelTitle: { fontSize: 16, fontWeight: '700', marginRight: 8 },
   miniBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   miniBadgeText: { fontSize: 10, fontWeight: '700' },
-  levelDesc: { fontSize: 13, color: '#64748B', marginTop: 4, paddingRight: 10 },
-  radioOuter: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center' },
-  radioOuterSelected: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
+  levelDesc: { fontSize: 13, marginTop: 4, paddingRight: 10 },
+  radioOuter: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+  radioOuterSelected: { },
 
-  infoBox: { backgroundColor: '#EFF6FF', padding: 16, borderRadius: 12, marginTop: 24, flexDirection: 'row', alignItems: 'center' },
-  infoBoxText: { color: '#1565C0', fontSize: 13, lineHeight: 20, flex: 1 },
+  infoBox: { padding: 16, borderRadius: 12, marginTop: 24, flexDirection: 'row', alignItems: 'center' },
+  infoBoxText: { fontSize: 13, lineHeight: 20, flex: 1 },
 
   // FOOTER
   footer: { padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
   dotsContainer: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 24 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E2E8F0' },
-  dotActive: { backgroundColor: '#1565C0', width: 24 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  dotActive: { width: 24 },
   buttonRow: { flexDirection: 'row', gap: 12 },
-  skipBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
-  skipBtnText: { color: '#64748B', fontSize: 16, fontWeight: '700' },
-  nextBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', backgroundColor: '#1565C0', flexDirection: 'row', justifyContent: 'center' },
-  nextBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  skipBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1 },
+  skipBtnText: { fontSize: 16, fontWeight: '700' },
+  nextBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
+  nextBtnText: { fontSize: 16, fontWeight: '700' },
   
-  primaryBtnFlat: { backgroundColor: '#1565C0', paddingVertical: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  primaryBtnFlatText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  primaryBtnFlat: { paddingVertical: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  primaryBtnFlatText: { fontSize: 16, fontWeight: '700' },
 });

@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { scoreWritingTest } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
 import { updateFullMockProgress } from '../../utils/fullMockTest';
+import { useTheme } from '../../context/ThemeContext';
 
 const MOCK_TEST = {
   _id: 'mock1',
@@ -43,6 +44,7 @@ const MOCK_TEST = {
 };
 
 export default function WritingScreen({ route, navigation }) {
+  const { isDarkMode, theme } = useTheme();
   const test = route.params?.test || MOCK_TEST;
   const taskIndex = route.params?.taskIndex || 0;
   const draftResponses = route.params?.draftResponses || [];
@@ -248,11 +250,11 @@ export default function WritingScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? theme.background : '#FBE9E7' }]}>
           <ActivityIndicator size="large" color="#E65100" />
-          <Text style={styles.loadingText}>AI đang chấm toàn bộ bài viết...</Text>
-          <Text style={styles.loadingSubText}>
+          <Text style={[styles.loadingText, { color: isDarkMode ? '#FF9800' : '#E65100' }]}>AI đang chấm toàn bộ bài viết...</Text>
+          <Text style={[styles.loadingSubText, { color: isDarkMode ? '#FFB74D' : '#BF360C' }]}>
             Đang xử lý {tasks.length} task của {test.title}
           </Text>
         </View>
@@ -261,23 +263,30 @@ export default function WritingScreen({ route, navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? theme.background : '#fff'} />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={handleHeaderLeftPress}>
-          <Ionicons name={hasPreviousTask ? 'arrow-back' : 'close'} size={20} color="#1A1A2E" />
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#333' : '#F5F5F5' }]} onPress={handleHeaderLeftPress}>
+          <Ionicons name={hasPreviousTask ? 'arrow-back' : 'close'} size={20} color={theme.text} />
         </TouchableOpacity>
-        <View style={styles.timerBadge}>
-          <Ionicons name="flame" size={16} color="#E65100" />
-          <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
+        <View style={[styles.timerBadge, { backgroundColor: isDarkMode ? '#2A1A0F' : '#FFF3E0' }]}>
+          <Ionicons name="flame" size={16} color={isDarkMode ? '#FF9800' : '#E65100'} />
+          <Text style={[styles.timerText, { color: isDarkMode ? '#FF9800' : '#E65100' }]}>{formatTime(timeLeft)}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.submitHeaderBtn, !essay.trim() && styles.submitHeaderBtnDisabled]}
+          style={[
+            styles.submitHeaderBtn,
+            { backgroundColor: isDarkMode ? '#FF9800' : '#E65100' },
+            !essay.trim() && (isDarkMode ? { backgroundColor: '#333' } : styles.submitHeaderBtnDisabled)
+          ]}
           onPress={handleSubmit}
           disabled={!essay.trim()}
         >
-          <Text style={[styles.submitHeaderText, !essay.trim() && styles.submitHeaderTextDisabled]}>
+          <Text style={[
+            styles.submitHeaderText,
+            !essay.trim() && (isDarkMode ? { color: '#666' } : styles.submitHeaderTextDisabled)
+          ]}>
             {isLastTask ? 'Nộp bài' : 'Lưu & tiếp'}
           </Text>
         </TouchableOpacity>
@@ -292,20 +301,32 @@ export default function WritingScreen({ route, navigation }) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.promptCard}>
+          <View style={[
+            styles.promptCard,
+            {
+              backgroundColor: isDarkMode ? '#2D1B0F' : '#FFF3E0',
+              borderColor: isDarkMode ? '#4D2A10' : '#FFE0B2',
+            }
+          ]}>
             <View style={styles.promptTopRow}>
-              <View style={styles.taskTag}>
+              <View style={[styles.taskTag, { backgroundColor: isDarkMode ? '#FF9800' : '#E65100' }]}>
                 <Text style={styles.taskTagText}>{currentTask.taskType || 'Task'}</Text>
               </View>
-              <Text style={styles.promptMeta}>Task {taskIndex + 1}/{tasks.length}</Text>
-              <Text style={styles.promptMeta}>• Tối thiểu {minWords} từ</Text>
+              <Text style={[styles.promptMeta, { color: theme.textSecondary }]}>Task {taskIndex + 1}/{tasks.length}</Text>
+              <Text style={[styles.promptMeta, { color: theme.textSecondary }]}>• Tối thiểu {minWords} từ</Text>
             </View>
-            <Text style={styles.promptText}>{currentTask.prompt}</Text>
+            <Text style={[styles.promptText, { color: isDarkMode ? '#FFE0B2' : '#5D4037' }]}>{currentTask.prompt}</Text>
           </View>
 
-          <View style={styles.noticeCard}>
-            <Ionicons name="information-circle" size={18} color="#E65100" />
-            <Text style={styles.noticeText}>
+          <View style={[
+            styles.noticeCard,
+            {
+              backgroundColor: isDarkMode ? '#23150D' : '#FFF8F2',
+              borderColor: isDarkMode ? '#3E200B' : '#FFE0B2',
+            }
+          ]}>
+            <Ionicons name="information-circle" size={18} color={isDarkMode ? '#FF9800' : '#E65100'} />
+            <Text style={[styles.noticeText, { color: isDarkMode ? '#FFB74D' : '#8D5A2B' }]}>
               {isLastTask
                 ? 'Sau khi nộp Task cuối, hệ thống sẽ chấm tổng cho cả bài Writing.'
                 : 'Task này sẽ được lưu tạm. Bạn sẽ làm tiếp Task sau trước khi nộp toàn bộ bài.'}
@@ -314,18 +335,31 @@ export default function WritingScreen({ route, navigation }) {
 
           <View style={styles.essayContainer}>
             <TextInput
-              style={styles.essayInput}
+              style={[
+                styles.essayInput,
+                {
+                  backgroundColor: theme.inputBg,
+                  borderColor: theme.inputBorder,
+                  color: theme.inputText,
+                }
+              ]}
               value={essay}
               onChangeText={setEssay}
               multiline
               placeholder="Bắt đầu viết bài của bạn tại đây..."
-              placeholderTextColor="#BDBDBD"
+              placeholderTextColor={theme.placeholder}
               textAlignVertical="top"
               autoCorrect={false}
             />
 
             <Animated.View
-              style={[styles.wordCountPill, { transform: [{ scale: wordCountAnim }] }]}
+              style={[
+                styles.wordCountPill,
+                {
+                  transform: [{ scale: wordCountAnim }],
+                  backgroundColor: isDarkMode ? '#FF9800' : '#E65100',
+                }
+              ]}
             >
               <Ionicons name="create" size={12} color="#fff" />
               <Text style={styles.wordCountPillText}>

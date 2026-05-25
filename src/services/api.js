@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 📱 Test trên Expo Go: đổi thành IP LAN của máy tính (chạy ipconfig để xem)
 // 💻 Test trên web browser: đổi lại thành 'http://localhost:5000/api'
-// const BASE_URL = 'http://192.168.1.100:5000/api';
-const BASE_URL = 'http://172.20.10.2:5000/api';
+// 🌐 Production: URL Render của bạn
+const BASE_URL = 'https://vstepapp-backend.onrender.com/api';
 
 const api = axios.create({
   baseURL: BASE_URL,

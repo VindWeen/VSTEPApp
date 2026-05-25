@@ -118,8 +118,9 @@ export default function WritingListScreen({ navigation }) {
 
       const processedItems = groupedTests.map((item) => {
         const draft = draftMap[getPracticeStateKey('writing', item._id)];
+        const hasHistory = item.title in bestBandByTitle;
         const bestBand = bestBandByTitle[item.title] || 0;
-        const status = draft ? 'inProgress' : bestBand > 0 ? 'done' : 'notDone';
+        const status = draft ? 'inProgress' : hasHistory ? 'done' : 'notDone';
 
         return {
           ...item,

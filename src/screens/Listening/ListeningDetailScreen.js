@@ -26,6 +26,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
   const [currentPart, setCurrentPart] = useState(resumeState?.currentPart || 0);
   const [answers, setAnswers] = useState(resumeState?.answers || {});
   const [sound, setSound] = useState(null);
+  const soundRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPos, setPlaybackPos] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -33,6 +34,8 @@ export default function ListeningDetailScreen({ route, navigation }) {
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [timeLeft, setTimeLeft] = useState(resumeState?.timeLeft || (test?.duration || 40) * 60);
   const testStorageKey = test?._id || test?.title;
+  const [playCount, setPlayCount] = useState(1);
+  const playCountRef = useRef(1);
 
   // Waveform animation
   const waveAnims = useRef(Array.from({ length: 9 }, () => new Animated.Value(0.3))).current;
@@ -82,8 +85,23 @@ export default function ListeningDetailScreen({ route, navigation }) {
 
   useEffect(() => {
     fetchDetail();
-    return () => { sound?.unloadAsync(); stopWave(); };
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+      }
+      stopWave();
+    };
   }, []);
+
+  useEffect(() => {
+    playCountRef.current = 1;
+    setPlayCount(1);
+
+    const activePart = detail?.parts?.[currentPart];
+    if (fullMockMode && !loading && detail && activePart?.audioUrl) {
+      loadAndPlayAudio(activePart.audioUrl);
+    }
+  }, [currentPart, loading, detail, fullMockMode]);
 
   useEffect(() => {
     if (loading || !detail) return;
@@ -134,7 +152,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
   const loadAndPlayAudio = async (audioUrl) => {
     try {
       setLoadingAudio(true);
-      if (sound) await sound.unloadAsync();
+      if (soundRef.current) await soundRef.current.unloadAsync().catch(() => {});
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: audioUrl },
@@ -145,9 +163,23 @@ export default function ListeningDetailScreen({ route, navigation }) {
             setDuration(status.durationMillis || 0);
             setIsPlaying(status.isPlaying);
             if (status.isPlaying) startWave(); else stopWave();
+
+            if (status.didJustFinish) {
+              if (fullMockMode && playCountRef.current < 3) {
+                playCountRef.current += 1;
+                setPlayCount(playCountRef.current);
+                newSound.setPositionAsync(0).then(() => {
+                  newSound.playAsync().catch(() => {});
+                }).catch(() => {});
+              } else {
+                setIsPlaying(false);
+                stopWave();
+              }
+            }
           }
         }
       );
+      soundRef.current = newSound;
       setSound(newSound);
       startWave();
     } catch (e) {
@@ -158,37 +190,37 @@ export default function ListeningDetailScreen({ route, navigation }) {
   };
 
   const togglePlay = async () => {
-    if (!sound) return;
+    if (!soundRef.current) return;
     if (isPlaying) {
-      await sound.pauseAsync();
+      await soundRef.current.pauseAsync();
       stopWave();
     } else {
-      await sound.playAsync();
+      await soundRef.current.playAsync();
       startWave();
     }
   };
 
   const handleSeek = async (value) => {
-    if (sound) { await sound.setPositionAsync(value); setPlaybackPos(value); }
+    if (soundRef.current) { await soundRef.current.setPositionAsync(value); setPlaybackPos(value); }
   };
 
   const skipBackward = async () => {
-    if (sound) {
+    if (soundRef.current) {
       const newPos = Math.max(0, playbackPos - 10000);
-      await sound.setPositionAsync(newPos); setPlaybackPos(newPos);
+      await soundRef.current.setPositionAsync(newPos); setPlaybackPos(newPos);
     }
   };
 
   const skipForward = async () => {
-    if (sound && duration > 0) {
+    if (soundRef.current && duration > 0) {
       const newPos = Math.min(duration, playbackPos + 10000);
-      await sound.setPositionAsync(newPos); setPlaybackPos(newPos);
+      await soundRef.current.setPositionAsync(newPos); setPlaybackPos(newPos);
     }
   };
 
   const changeSpeed = async (rate) => {
     setPlaybackRate(rate);
-    if (sound) await sound.setRateAsync(rate, true);
+    if (soundRef.current) await soundRef.current.setRateAsync(rate, true);
   };
 
   const formatTime = (ms) => {
@@ -203,11 +235,12 @@ export default function ListeningDetailScreen({ route, navigation }) {
   };
 
   const resetPlayerState = async () => {
-    if (sound) {
-      await sound.stopAsync();
-      await sound.unloadAsync();
-      setSound(null);
+    if (soundRef.current) {
+      await soundRef.current.stopAsync().catch(() => {});
+      await soundRef.current.unloadAsync().catch(() => {});
+      soundRef.current = null;
     }
+    setSound(null);
     stopWave();
     setIsPlaying(false);
     setPlaybackPos(0);
@@ -227,7 +260,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
     setCurrentPart(p => Math.max(0, p - 1));
   };
 
-  const handleSubmit = (skipConfirm = false) => {
+  const handleSubmit = async (skipConfirm = false) => {
     if (!skipConfirm) {
       Alert.alert(
         'Nộp bài?',
@@ -239,6 +272,7 @@ export default function ListeningDetailScreen({ route, navigation }) {
       );
       return;
     }
+    await resetPlayerState();
     clearPracticeState('listening', testStorageKey).catch(() => {});
 
     if (fullMockMode) {
@@ -269,7 +303,10 @@ export default function ListeningDetailScreen({ route, navigation }) {
         { text: 'Tiếp tục làm', style: 'cancel' },
         {
           text: 'Thoát', style: 'destructive',
-          onPress: () => { if (sound) { sound.stopAsync(); sound.unloadAsync(); } stopWave(); navigation.goBack(); }
+          onPress: async () => {
+            await resetPlayerState();
+            navigation.goBack();
+          }
         },
       ]
     );
@@ -306,11 +343,11 @@ export default function ListeningDetailScreen({ route, navigation }) {
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <TouchableOpacity
           style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F5F5F5' }]}
-          onPress={currentPart > 0 ? handlePreviousPart : handleClose}
+          onPress={(currentPart > 0 && !fullMockMode) ? handlePreviousPart : handleClose}
         >
           <Ionicons
-            name={currentPart > 0 ? 'chevron-back' : 'close'}
-            size={currentPart > 0 ? 20 : 18}
+            name={(currentPart > 0 && !fullMockMode) ? 'chevron-back' : 'close'}
+            size={(currentPart > 0 && !fullMockMode) ? 20 : 18}
             color={theme.text}
           />
         </TouchableOpacity>
@@ -388,8 +425,8 @@ export default function ListeningDetailScreen({ route, navigation }) {
               onSlidingComplete={handleSeek}
               minimumTrackTintColor={isDarkMode ? accentColor : '#BBDEFB'}
               maximumTrackTintColor="rgba(255,255,255,0.3)"
-              thumbTintColor="#fff"
-              disabled={!sound}
+              thumbTintColor={fullMockMode ? 'transparent' : '#fff'}
+              disabled={!sound || fullMockMode}
             />
             <Text style={styles.timeLabel}>{duration > 0 ? formatTime(duration) : '--:--'}</Text>
           </View>
@@ -397,6 +434,13 @@ export default function ListeningDetailScreen({ route, navigation }) {
           {/* Controls */}
           {loadingAudio ? (
             <ActivityIndicator color={isDarkMode ? accentColor : '#fff'} style={{ marginVertical: 16 }} />
+          ) : fullMockMode ? (
+            <View style={styles.mockControlsRow}>
+              <Ionicons name="radio-outline" size={20} color="#fff" />
+              <Text style={styles.mockPlayStatus}>
+                Đang phát • Lần nghe {playCount}/3
+              </Text>
+            </View>
           ) : (
             <View style={styles.controlsRow}>
               <TouchableOpacity style={styles.skipBtn} onPress={skipBackward} disabled={!sound}>
@@ -424,22 +468,24 @@ export default function ListeningDetailScreen({ route, navigation }) {
           )}
 
           {/* Speed */}
-          <View style={styles.speedRow}>
-            {SPEEDS.map(rate => (
-              <TouchableOpacity
-                key={rate}
-                style={[styles.speedBtn, playbackRate === rate && styles.speedBtnActive]}
-                onPress={() => changeSpeed(rate)}
-              >
-                <Text style={[
-                  styles.speedBtnText,
-                  playbackRate === rate && (isDarkMode ? { color: '#121212' } : styles.speedBtnTextActive)
-                ]}>
-                  {SPEED_LABELS[rate]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {!fullMockMode && (
+            <View style={styles.speedRow}>
+              {SPEEDS.map(rate => (
+                <TouchableOpacity
+                  key={rate}
+                  style={[styles.speedBtn, playbackRate === rate && styles.speedBtnActive]}
+                  onPress={() => changeSpeed(rate)}
+                >
+                  <Text style={[
+                    styles.speedBtnText,
+                    playbackRate === rate && (isDarkMode ? { color: '#121212' } : styles.speedBtnTextActive)
+                  ]}>
+                    {SPEED_LABELS[rate]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Questions */}
@@ -656,4 +702,21 @@ const styles = StyleSheet.create({
     shadowRadius: 8, elevation: 4,
   },
   submitBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  mockControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignSelf: 'center',
+  },
+  mockPlayStatus: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

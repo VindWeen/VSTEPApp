@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -51,13 +51,36 @@ import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+const dynamicCardStyleInterpolator = ({ route }) => ({
+  cardStyleInterpolator: (props) => {
+    const isBack = route.params?.animationDirection === 'back';
+    if (isBack) {
+      const { current, layouts } = props;
+      return {
+        cardStyle: {
+          transform: [
+            {
+              translateX: current.progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-layouts.screen.width, 0],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        },
+      };
+    }
+    return CardStyleInterpolators.forHorizontalIOS(props);
+  },
+});
+
 // ── Home Stack ────────────────────────────────────────────
 function HomeStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} />
       <Stack.Screen name="MockTestIntro" component={MockTestIntroScreen} />
-      <Stack.Screen name="MockTestHub" component={MockTestHubScreen} />
+      <Stack.Screen name="MockTestHub" component={MockTestHubScreen} options={dynamicCardStyleInterpolator} />
       <Stack.Screen name="MockTestResult" component={MockTestResultScreen} />
       <Stack.Screen name="MockTestHistory" component={MockTestHistoryScreen} />
       <Stack.Screen name="FullMockListeningDetail" component={ListeningDetailScreen} />
@@ -66,8 +89,8 @@ function HomeStack() {
       <Stack.Screen name="FullMockReadingResult" component={ReadingResultScreen} />
       <Stack.Screen name="FullMockWritingCompose" component={WritingScreen} />
       <Stack.Screen name="FullMockWritingResult" component={WritingResultScreen} />
-      <Stack.Screen name="FullMockSpeakingPrep" component={SpeakingPrepScreen} />
-      <Stack.Screen name="FullMockSpeakingRecord" component={SpeakingScreen} />
+      <Stack.Screen name="FullMockSpeakingPrep" component={SpeakingPrepScreen} options={dynamicCardStyleInterpolator} />
+      <Stack.Screen name="FullMockSpeakingRecord" component={SpeakingScreen} options={dynamicCardStyleInterpolator} />
       <Stack.Screen name="FullMockSpeakingResult" component={SpeakingResultScreen} />
     </Stack.Navigator>
   );
@@ -76,7 +99,7 @@ function HomeStack() {
 // ── Listening Stack ───────────────────────────────────────
 function ListeningStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
       <Stack.Screen name="ListeningList" component={ListeningListScreen} />
       <Stack.Screen name="ListeningDetail" component={ListeningDetailScreen} />
       <Stack.Screen name="ListeningResult" component={ListeningResultScreen} />
@@ -87,7 +110,7 @@ function ListeningStack() {
 // ── Reading Stack ─────────────────────────────────────────
 function ReadingStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
       <Stack.Screen name="ReadingList" component={ReadingListScreen} />
       <Stack.Screen name="ReadingDetail" component={ReadingDetailScreen} />
       <Stack.Screen name="ReadingResult" component={ReadingResultScreen} />
@@ -98,7 +121,7 @@ function ReadingStack() {
 // ── Writing Stack ─────────────────────────────────────────
 function WritingStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
       <Stack.Screen name="WritingList" component={WritingListScreen} />
       <Stack.Screen name="WritingCompose" component={WritingScreen} />
       <Stack.Screen name="WritingResult" component={WritingResultScreen} />
@@ -109,13 +132,13 @@ function WritingStack() {
 // ── Speaking Stack ────────────────────────────────────────
 function SpeakingStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="SpeakingList" component={SpeakingListScreen} />
-      <Stack.Screen name="SpeakingPrep" component={SpeakingPrepScreen} />
-      <Stack.Screen name="SpeakingRecord" component={SpeakingScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
+      <Stack.Screen name="SpeakingList" component={SpeakingListScreen} options={dynamicCardStyleInterpolator} />
+      <Stack.Screen name="SpeakingPrep" component={SpeakingPrepScreen} options={dynamicCardStyleInterpolator} />
+      <Stack.Screen name="SpeakingRecord" component={SpeakingScreen} options={dynamicCardStyleInterpolator} />
       <Stack.Screen name="SpeakingResult" component={SpeakingResultScreen} />
       {/* Legacy route for backward compat */}
-      <Stack.Screen name="Speaking" component={SpeakingListScreen} />
+      <Stack.Screen name="Speaking" component={SpeakingListScreen} options={dynamicCardStyleInterpolator} />
     </Stack.Navigator>
   );
 }
@@ -123,7 +146,7 @@ function SpeakingStack() {
 // ── Profile Stack ────────────────────────────────────────
 function ProfileStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
       <Stack.Screen name="ProfileMain" component={ProfileScreen} />
       <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
       <Stack.Screen name="History" component={HistoryScreen} />
@@ -267,7 +290,7 @@ function MainTabs() {
 // ── Auth Stack ────────────────────────────────────────────
 function AuthStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -329,7 +352,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer theme={isDarkMode ? MyDarkTheme : MyLightTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={!token ? initialRoute : 'Main'}>
+      <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }} initialRouteName={!token ? initialRoute : 'Main'}>
         {!token ? (
           <>
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />

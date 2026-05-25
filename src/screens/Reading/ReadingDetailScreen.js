@@ -63,7 +63,6 @@ export default function ReadingDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(!initialTest?.passages?.length && !initialTest?.parts?.length);
   const [answers, setAnswers] = useState(resumeState?.answers || {});
   const [timeLeft, setTimeLeft] = useState(resumeState?.timeLeft || ((initialTest?.duration || 60) * 60));
-  const [expandedPassage, setExpandedPassage] = useState(0);
   const timerRef = useRef(null);
   const testStorageKey = initialTest?._id || initialTest?.title;
 
@@ -269,15 +268,8 @@ export default function ReadingDetailScreen({ route, navigation }) {
             <View style={[styles.passageCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               {passage.title ? <Text style={[styles.passageTitle, { color: theme.text }]}>{passage.title}</Text> : null}
               <Text style={[styles.passageContent, { color: theme.text }]}>
-                {expandedPassage === pIdx
-                  ? passage.content
-                  : `${String(passage.content || '').slice(0, 700)}${String(passage.content || '').length > 700 ? '...' : ''}`}
+                {passage.content}
               </Text>
-              {expandedPassage !== pIdx && String(passage.content || '').length > 700 ? (
-                <TouchableOpacity style={styles.expandBtn} onPress={() => setExpandedPassage(pIdx)}>
-                  <Text style={[styles.expandBtnText, { color: primaryColor }]}>Xem toàn bộ passage</Text>
-                </TouchableOpacity>
-              ) : null}
             </View>
 
             <View style={styles.questionsHeader}>

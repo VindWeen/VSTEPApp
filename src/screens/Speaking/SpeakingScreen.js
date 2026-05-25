@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { CommonActions } from '@react-navigation/native';
 import { uploadSpeaking, scoreSpeakingTest } from '../../services/api';
 import { clearPracticeState, savePracticeState } from '../../utils/practiceState';
 import { updateFullMockProgress } from '../../utils/fullMockTest';
@@ -204,6 +205,11 @@ export default function SpeakingScreen({ route, navigation }) {
     if (!currentDraft?.localUri) return;
 
     try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
       if (!soundRef.current) {
         const { sound } = await Audio.Sound.createAsync(
           { uri: currentDraft.localUri },
@@ -220,12 +226,18 @@ export default function SpeakingScreen({ route, navigation }) {
       }
 
       const status = await soundRef.current.getStatusAsync();
-      if (status.isLoaded && status.isPlaying) {
-        await soundRef.current.pauseAsync();
-        setIsPlaying(false);
-      } else if (status.isLoaded) {
-        await soundRef.current.playFromPositionAsync(0);
-        setIsPlaying(true);
+      if (status.isLoaded) {
+        if (status.isPlaying) {
+          await soundRef.current.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          if (status.positionMillis === status.durationMillis) {
+            await soundRef.current.playFromPositionAsync(0);
+          } else {
+            await soundRef.current.playAsync();
+          }
+          setIsPlaying(true);
+        }
       }
     } catch (e) {
       Alert.alert('Lỗi', `Không thể phát audio: ${e.message}`);
@@ -293,15 +305,61 @@ export default function SpeakingScreen({ route, navigation }) {
     }
   };
 
+  useEffect(() => {
+    if (route.params?.autoStartRecording) {
+      navigation.setParams({ autoStartRecording: false });
+      startRecording();
+    }
+  }, [route.params?.autoStartRecording]);
+
   const handleGoToPreviousTask = async () => {
     if (!hasPreviousTask || processing) return;
     await stopPlayback();
-    navigation.replace(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
-      test,
-      taskIndex: taskIndex - 1,
-      draftResponses,
-      ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
-    });
+
+    const nextDrafts = buildUpdatedDraftResponses();
+    const state = navigation.getState();
+    const routes = state?.routes || [];
+    const previousRoute = routes[routes.length - 2];
+    const prevRouteName = previousRoute?.name;
+    const targetRoute = fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord';
+
+    if (previousRoute && prevRouteName === targetRoute) {
+      navigation.dispatch({
+        ...CommonActions.setParams({ draftResponses: nextDrafts }),
+        source: previousRoute.key,
+      });
+      navigation.goBack();
+    } else {
+      navigation.replace(targetRoute, {
+        test,
+        taskIndex: taskIndex - 1,
+        draftResponses: nextDrafts,
+        animationDirection: 'back',
+        ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
+      });
+    }
+  };
+
+  const handleClose = () => {
+    Alert.alert(
+      'Thoát bài nói?',
+      'Tiến trình hiện tại sẽ được lưu tạm để bạn tiếp tục sau. Bạn có chắc chắn muốn thoát?',
+      [
+        { text: 'Tiếp tục làm bài', style: 'cancel' },
+        {
+          text: 'Thoát',
+          style: 'destructive',
+          onPress: () => {
+            const targetRoute = fullMockMode ? 'MockTestHub' : 'SpeakingList';
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate(targetRoute, { animationDirection: 'back' });
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleHeaderLeftPress = async () => {
@@ -310,7 +368,7 @@ export default function SpeakingScreen({ route, navigation }) {
       return;
     }
 
-    navigation.goBack();
+    handleClose();
   };
 
   const handleGoToNextTask = async () => {
@@ -328,12 +386,23 @@ export default function SpeakingScreen({ route, navigation }) {
     });
   };
 
-  const handleSubmitFullTest = async () => {
+  const handleSubmitFullTest = () => {
     if (!allPartsRecorded) {
       Alert.alert('Chưa đủ part', 'Bạn cần ghi âm đủ 3 part trước khi chấm điểm toàn bộ bài.');
       return;
     }
 
+    Alert.alert(
+      'Nộp bài?',
+      'Bạn có chắc chắn muốn nộp và chấm điểm toàn bộ bài thi nói?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Nộp bài', onPress: () => executeSubmitFullTest() },
+      ]
+    );
+  };
+
+  const executeSubmitFullTest = async () => {
     if (fullMockMode) {
       await clearPracticeState('speaking', testStorageKey);
       await updateFullMockProgress('speaking', {
@@ -448,26 +517,27 @@ export default function SpeakingScreen({ route, navigation }) {
               <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color="#fff" />
             </TouchableOpacity>
           </View>
-
-          <View style={styles.savedActions}>
-            <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: isDarkMode ? '#333' : '#fff', borderColor: isDarkMode ? '#444' : '#D1C4E9' }]} onPress={startRecording}>
-              <Ionicons name="refresh" size={16} color={isDarkMode ? '#E040FB' : '#6A1B9A'} />
-              <Text style={[styles.secondaryBtnText, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>Ghi âm lại</Text>
-            </TouchableOpacity>
-
-            {!isLastTask ? (
-              <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: isDarkMode ? '#333' : '#fff', borderColor: isDarkMode ? '#444' : '#D1C4E9' }]} onPress={handleGoToNextTask}>
-                <Ionicons name="arrow-forward" size={16} color={isDarkMode ? '#E040FB' : '#6A1B9A'} />
-                <Text style={[styles.secondaryBtnText, { color: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>Sang part tiếp</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
         </View>
       ) : null}
 
       <View style={styles.recordArea}>
-        <Animated.View style={[styles.micBtn, { transform: [{ scale: micPulseAnim }], backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]}>
-          <Ionicons name="mic" size={40} color="#fff" />
+        <Animated.View style={{ transform: [{ scale: micPulseAnim }] }}>
+          <TouchableOpacity
+            style={[
+              styles.micBtn,
+              isRecording
+                ? styles.micBtnRecording
+                : { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }
+            ]}
+            onPress={isRecording ? stopAndSaveRecording : startRecording}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={isRecording ? 'square' : currentDraft?.localUri ? 'refresh' : 'mic'}
+              size={40}
+              color="#fff"
+            />
+          </TouchableOpacity>
         </Animated.View>
 
         <View style={styles.waveContainer}>
@@ -494,39 +564,34 @@ export default function SpeakingScreen({ route, navigation }) {
         </Text>
       </View>
 
-      <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
-        <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            isRecording ? styles.actionBtnStop : [styles.actionBtnStart, { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]
-          ]}
-          onPress={isRecording ? stopAndSaveRecording : startRecording}
-        >
-          <Ionicons name={isRecording ? 'save' : currentDraft?.localUri ? 'refresh' : 'mic'} size={22} color="#fff" />
-          <Text style={styles.actionBtnText}>
-            {isRecording
-              ? 'Dừng & lưu part'
-              : currentDraft?.localUri
-                ? 'Ghi âm lại part này'
-                : 'Bắt đầu ghi âm'}
-          </Text>
-        </TouchableOpacity>
+      {(isLastTask || (Boolean(currentDraft?.localUri) && !isLastTask)) && (
+        <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
+          {!isLastTask && currentDraft?.localUri && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]}
+              onPress={handleGoToNextTask}
+            >
+              <Ionicons name="arrow-forward" size={22} color="#fff" />
+              <Text style={styles.actionBtnText}>Sang part tiếp</Text>
+            </TouchableOpacity>
+          )}
 
-        {isLastTask ? (
-          <TouchableOpacity
-            style={[
-              styles.submitBtn,
-              isDarkMode && { backgroundColor: '#388E3C' },
-              !allPartsRecorded && (isDarkMode ? { backgroundColor: '#333' } : styles.submitBtnDisabled)
-            ]}
-            onPress={handleSubmitFullTest}
-            disabled={!allPartsRecorded}
-          >
-            <Ionicons name="checkmark-circle" size={20} color={!allPartsRecorded && isDarkMode ? '#666' : '#fff'} />
-            <Text style={[styles.submitBtnText, !allPartsRecorded && isDarkMode && { color: '#666' }]}>Nộp & chấm cả bài</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+          {isLastTask && (
+            <TouchableOpacity
+              style={[
+                styles.submitBtn,
+                isDarkMode && { backgroundColor: '#388E3C' },
+                !allPartsRecorded && (isDarkMode ? { backgroundColor: '#333' } : styles.submitBtnDisabled)
+              ]}
+              onPress={handleSubmitFullTest}
+              disabled={!allPartsRecorded}
+            >
+              <Ionicons name="checkmark-circle" size={20} color={!allPartsRecorded && isDarkMode ? '#666' : '#fff'} />
+              <Text style={[styles.submitBtnText, !allPartsRecorded && isDarkMode && { color: '#666' }]}>Nộp & chấm cả bài</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -622,6 +687,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#6A1B9A',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  micBtnRecording: {
+    backgroundColor: '#D32F2F',
   },
   waveContainer: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 24, marginBottom: 20, height: 50 },
   wavebar: { width: 4, borderRadius: 2, backgroundColor: '#9C27B0' },

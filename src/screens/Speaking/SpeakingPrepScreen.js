@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { savePracticeState } from '../../utils/practiceState';
 import { updateFullMockProgress } from '../../utils/fullMockTest';
 import { useTheme } from '../../context/ThemeContext';
+import { CommonActions } from '@react-navigation/native';
 
 const PREP_TIME = 28;
 
@@ -47,6 +48,22 @@ export default function SpeakingPrepScreen({ route, navigation }) {
   const timerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const handleStartRecording = useCallback((autoStart = false) => {
+    navigation.replace(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
+      ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
+      test,
+      taskIndex,
+      draftResponses,
+      resumeState,
+      autoStartRecording: autoStart,
+    });
+  }, [navigation, fullMockMode, route.params?.fullMockSessionId, test, taskIndex, draftResponses, resumeState]);
+
+  const handleStartRecordingRef = useRef(handleStartRecording);
+  useEffect(() => {
+    handleStartRecordingRef.current = handleStartRecording;
+  }, [handleStartRecording]);
+
   useEffect(() => {
     setTimeLeft(
       resumeState?.screen === 'prep' && resumeState?.taskIndex === taskIndex
@@ -77,6 +94,9 @@ export default function SpeakingPrepScreen({ route, navigation }) {
         if (time <= 1) {
           clearInterval(timerRef.current);
           pulse.stop();
+          setTimeout(() => {
+            handleStartRecordingRef.current(true);
+          }, 0);
           return 0;
         }
         return time - 1;
@@ -113,17 +133,37 @@ export default function SpeakingPrepScreen({ route, navigation }) {
 
   const handleHeaderLeftPress = () => {
     if (hasPreviousTask) {
-      navigation.replace(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
-        ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
-        test,
-        taskIndex: taskIndex - 1,
-        draftResponses,
-        resumeState,
-      });
+      const state = navigation.getState();
+      const routes = state?.routes || [];
+      const previousRoute = routes[routes.length - 2];
+      const prevRouteName = previousRoute?.name;
+      const targetRoute = fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord';
+
+      if (previousRoute && prevRouteName === targetRoute) {
+        navigation.dispatch({
+          ...CommonActions.setParams({ draftResponses }),
+          source: previousRoute.key,
+        });
+        navigation.goBack();
+      } else {
+        navigation.replace(targetRoute, {
+          ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
+          test,
+          taskIndex: taskIndex - 1,
+          draftResponses,
+          resumeState,
+          animationDirection: 'back',
+        });
+      }
       return;
     }
 
-    navigation.goBack();
+    const targetRoute = fullMockMode ? 'MockTestHub' : 'SpeakingList';
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate(targetRoute, { animationDirection: 'back' });
+    }
   };
 
   return (
@@ -189,15 +229,7 @@ export default function SpeakingPrepScreen({ route, navigation }) {
       <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
         <TouchableOpacity
           style={[styles.startBtn, { backgroundColor: isDarkMode ? '#E040FB' : '#6A1B9A' }]}
-          onPress={() =>
-            navigation.navigate(fullMockMode ? 'FullMockSpeakingRecord' : 'SpeakingRecord', {
-              ...(fullMockMode ? { fullMockMode, fullMockSessionId: route.params?.fullMockSessionId } : {}),
-              test,
-              taskIndex,
-              draftResponses,
-              resumeState,
-            })
-          }
+          onPress={() => handleStartRecording(false)}
         >
           <Ionicons name={currentDraft ? 'play-circle' : 'mic'} size={20} color="#fff" />
           <Text style={styles.startBtnText}>

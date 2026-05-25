@@ -21,6 +21,20 @@ import { useTheme } from '../../context/ThemeContext';
 
 const FILTERS = ['Tất cả', 'A2', 'B1', 'B2', 'C1'];
 
+const extractTestNumber = (title = '') => {
+  const match = title.match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+};
+
+const sortTests = (list) => {
+  return [...list].sort((a, b) => {
+    const numA = extractTestNumber(a.title);
+    const numB = extractTestNumber(b.title);
+    if (numA !== numB) return numA - numB;
+    return a.title.localeCompare(b.title);
+  });
+};
+
 export default function ListeningListScreen({ navigation }) {
   const { isDarkMode, theme } = useTheme();
   const [tests, setTests] = useState([]);
@@ -72,8 +86,9 @@ export default function ListeningListScreen({ navigation }) {
 
       const processedItems = testItems.map((item) => {
         const draft = draftMap[getPracticeStateKey('listening', item._id)];
+        const hasHistory = item.title in bestScoreByTitle;
         const bestScore = bestScoreByTitle[item.title] || 0;
-        const status = draft ? 'inProgress' : bestScore > 0 ? 'done' : 'notDone';
+        const status = draft ? 'inProgress' : hasHistory ? 'done' : 'notDone';
 
         return {
           ...item,
@@ -83,17 +98,18 @@ export default function ListeningListScreen({ navigation }) {
         };
       });
 
+      const sortedItems = sortTests(processedItems);
       if (pageNum === 1) {
-        setTests(processedItems);
+        setTests(sortedItems);
         setTotal(totalCount);
         setPage(1);
         setHasMore(testItems.length === 10);
-        await setCache(`listening_tests_${activeFilter}`, { data: processedItems, total: totalCount });
+        await setCache(`listening_tests_${activeFilter}`, { data: sortedItems, total: totalCount });
       } else {
         setTests((prev) => {
           const existingIds = new Set(prev.map(i => i._id));
           const uniqueNew = processedItems.filter(i => !existingIds.has(i._id));
-          return [...prev, ...uniqueNew];
+          return sortTests([...prev, ...uniqueNew]);
         });
         setTotal(totalCount);
         setPage(pageNum);

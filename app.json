@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "temp",
-    "slug": "temp",
+    "name": "VSTEPApp",
+    "slug": "VSTEPApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.vindween.vstepapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -24,6 +25,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6c699ff5-1590-4643-91e4-2796c42402e1"
+      }
+    },
+    "owner": "vindween"
   }
 }

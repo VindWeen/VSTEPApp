@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -15,9 +15,26 @@ export default function OnboardingScreen() {
   const [selectedLevel, setSelectedLevel] = useState('B1');
   const { theme, isDarkMode } = useTheme();
 
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
+
+  const changeStep = (nextIndex) => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentIndex(nextIndex);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
   const handleNext = async () => {
     if (currentIndex < 2) {
-      setCurrentIndex(currentIndex + 1);
+      changeStep(currentIndex + 1);
     } else {
       await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
       navigation.navigate('Auth', { screen: 'Register', params: { level: selectedLevel } });
@@ -26,7 +43,7 @@ export default function OnboardingScreen() {
 
   const handleBack = () => {
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+      changeStep(currentIndex - 1);
     }
   };
 
@@ -35,57 +52,93 @@ export default function OnboardingScreen() {
     navigation.navigate('Auth', { screen: 'Login' });
   };
 
-  if (currentIndex === 0) {
+  const levels = [
+    { id: 'A2', title: 'Sơ cấp', desc: 'Ngữ pháp cơ bản, từ vựng đơn giản', color: '#4CAF50', bg: isDarkMode ? '#4CAF5022' : '#E8F5E9' },
+    { id: 'B1', title: 'Trung cấp', desc: 'Giao tiếp hàng ngày, hiểu văn bản đơn giản', color: isDarkMode ? '#64B5F6' : '#1565C0', bg: isDarkMode ? '#1565C022' : '#E3F2FD' },
+    { id: 'B2', title: 'Trên trung cấp', desc: 'Thảo luận phức tạp, đọc tài liệu chuyên ngành', color: '#F57C00', bg: isDarkMode ? '#F57C0022' : '#FFF3E0' },
+    { id: 'C1', title: 'Nâng cao', desc: 'Thành thạo, gần như người bản ngữ', color: '#9C27B0', bg: isDarkMode ? '#9C27B022' : '#F3E5F5' },
+  ];
+
+  const renderDots = () => {
     return (
-      <View style={styles.container}>
+      <View style={styles.dotsContainer}>
+        {[0, 1, 2].map((index) => {
+          const isActive = currentIndex === index;
+          return (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.dot,
+                isActive ? [styles.dotActive, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }] : { backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0' }
+              ]}
+              onPress={() => changeStep(index)}
+              activeOpacity={0.7}
+            />
+          );
+        })}
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {currentIndex === 0 ? (
         <StatusBar barStyle="light-content" backgroundColor="#1E88E5" />
+      ) : (
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
+      )}
+
+      {currentIndex === 0 ? (
         <LinearGradient colors={['#1E88E5', '#1565C0', '#0D47A1']} style={styles.container}>
           <SafeAreaView style={styles.safeArea}>
-            <View style={styles.slide1Content}>
-              {/* Logo Area */}
-              <View style={styles.outerCircle}>
-                <View style={styles.innerCircle}>
-                  <MaterialCommunityIcons name="school" size={56} color="#1565C0" />
+            <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+              <View style={styles.slide1Content}>
+                {/* Logo Area */}
+                <View style={styles.outerCircle}>
+                  <View style={styles.innerCircle}>
+                    <MaterialCommunityIcons name="school" size={56} color="#1565C0" />
+                  </View>
                 </View>
-              </View>
 
-              {/* Title & Subtitle */}
-              <Text style={styles.slide1Title}>VSTEP Practice</Text>
-              <Text style={styles.slide1Subtitle}>Luyện thi VSTEP thông minh cùng AI</Text>
-              
-              {/* Tags */}
-              <View style={styles.tagsContainer}>
-                <View style={styles.tag}>
-                  <MaterialCommunityIcons name="circle-half-full" size={14} color="#FFF" style={{marginRight: 4}} />
-                  <Text style={styles.tagText}>AI Powered</Text>
+                {/* Title & Subtitle */}
+                <Text style={styles.slide1Title}>VSTEP Practice</Text>
+                <Text style={styles.slide1Subtitle}>Luyện thi VSTEP thông minh cùng AI</Text>
+                
+                {/* Tags */}
+                <View style={styles.tagsContainer}>
+                  <View style={styles.tag}>
+                    <MaterialCommunityIcons name="circle-half-full" size={14} color="#FFF" style={{marginRight: 4}} />
+                    <Text style={styles.tagText}>AI Powered</Text>
+                  </View>
+                  <View style={styles.tag}>
+                    <Ionicons name="stats-chart" size={14} color="#FFF" style={{marginRight: 4}} />
+                    <Text style={styles.tagText}>4 Kỹ năng</Text>
+                  </View>
                 </View>
-                <View style={styles.tag}>
-                  <Ionicons name="stats-chart" size={14} color="#FFF" style={{marginRight: 4}} />
-                  <Text style={styles.tagText}>4 Kỹ năng</Text>
+                <View style={styles.tagsContainer2}>
+                  <View style={styles.tag}>
+                    <Ionicons name="star" size={14} color="#FFF" style={{marginRight: 4}} />
+                    <Text style={styles.tagText}>Chuẩn VSTEP</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.tagsContainer2}>
-                <View style={styles.tag}>
-                  <Ionicons name="star" size={14} color="#FFF" style={{marginRight: 4}} />
-                  <Text style={styles.tagText}>Chuẩn VSTEP</Text>
-                </View>
-              </View>
 
-              {/* Mock Chart */}
-              <View style={styles.mockChartContainer}>
-                {[1, 2, 3, 4].map((i) => {
-                  const randomHeight = Math.floor(Math.random() * 50) + 40; // Random height from 40 to 90
-                  return (
-                    <View key={i} style={[styles.chartCol, { height: randomHeight }]}>
-                      <View style={styles.chartColInner} />
-                    </View>
-                  );
-                })}
+                {/* Mock Chart */}
+                <View style={styles.mockChartContainer}>
+                  {[1, 2, 3, 4].map((i) => {
+                    const randomHeight = Math.floor(Math.random() * 50) + 40;
+                    return (
+                      <View key={i} style={[styles.chartCol, { height: randomHeight }]}>
+                        <View style={styles.chartColInner} />
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            </Animated.View>
             
             {/* Bottom Sheet */}
             <View style={[styles.bottomCard, { backgroundColor: theme.card }]}>
+              {renderDots()}
               <TouchableOpacity 
                 style={[styles.primaryBtn, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
                 onPress={handleNext}
@@ -101,212 +154,197 @@ export default function OnboardingScreen() {
             </View>
           </SafeAreaView>
         </LinearGradient>
-      </View>
-    );
-  }
-
-  const levels = [
-    { id: 'A2', title: 'Sơ cấp', desc: 'Ngữ pháp cơ bản, từ vựng đơn giản', color: '#4CAF50', bg: isDarkMode ? '#4CAF5022' : '#E8F5E9' },
-    { id: 'B1', title: 'Trung cấp', desc: 'Giao tiếp hàng ngày, hiểu văn bản đơn giản', color: isDarkMode ? '#64B5F6' : '#1565C0', bg: isDarkMode ? '#1565C022' : '#E3F2FD' },
-    { id: 'B2', title: 'Trên trung cấp', desc: 'Thảo luận phức tạp, đọc tài liệu chuyên ngành', color: '#F57C00', bg: isDarkMode ? '#F57C0022' : '#FFF3E0' },
-    { id: 'C1', title: 'Nâng cao', desc: 'Thành thạo, gần như người bản ngữ', color: '#9C27B0', bg: isDarkMode ? '#9C27B022' : '#F3E5F5' },
-  ];
-
-  return (
-    <SafeAreaView style={[styles.safeAreaWhite, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
-      
-      {/* HEADER */}
-      {currentIndex === 1 ? (
-        <View style={styles.headerSlide2}>
-          <View style={styles.headerLogo}>
-            <View style={[styles.smallLogoBg, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]}>
-              <MaterialCommunityIcons name="school" size={16} color={isDarkMode ? '#121212' : '#FFF'} />
-            </View>
-            <Text style={[styles.headerLogoText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>VSTEP</Text>
-          </View>
-          <TouchableOpacity 
-            style={[styles.skipPillBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F1F5F9' }]} 
-            onPress={handleSkip}
-          >
-            <Text style={[styles.skipPillText, { color: theme.textSecondary }]}>Bỏ qua</Text>
-          </TouchableOpacity>
-        </View>
       ) : (
-        <View style={styles.headerSlide3}>
-          <TouchableOpacity 
-            style={[styles.backPillBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F1F5F9' }]} 
-            onPress={handleBack}
-          >
-            <Ionicons name="arrow-back" size={18} color={isDarkMode ? theme.text : '#1A1A1A'} style={{marginRight: 4}} />
-            <Text style={[styles.backPillText, { color: isDarkMode ? theme.text : '#64748B' }]}>Quay lại</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* CONTENT */}
-      <View style={styles.content}>
-        
-        {currentIndex === 1 && (
-          <View style={styles.slide2Content}>
-            {/* Big Circle */}
-            <View style={styles.bigBlueCircle}>
-              <Ionicons name="headset" size={70} color="#FFF" />
-              {/* Decorative small circles */}
-              <View style={styles.decoCircle1} />
-              <View style={styles.decoCircle2} />
-              <View style={[styles.decoCircle3, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F0F7FF' }]}>
-                <Ionicons name="help" size={10} color={isDarkMode ? '#64B5F6' : '#1565C0'} />
+        <SafeAreaView style={[styles.safeAreaWhite, { backgroundColor: theme.background }]}>
+          {/* HEADER */}
+          {currentIndex === 1 ? (
+            <View style={styles.headerSlide2}>
+              <View style={styles.headerLogo}>
+                <View style={[styles.smallLogoBg, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]}>
+                  <MaterialCommunityIcons name="school" size={16} color={isDarkMode ? '#121212' : '#FFF'} />
+                </View>
+                <Text style={[styles.headerLogoText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>VSTEP</Text>
               </View>
             </View>
-            
-            {/* Sound Wave */}
-            <View style={styles.soundWave}>
-              {[...Array(9)].map((_, i) => (
-                <View key={i} style={[
-                  styles.waveBar, 
-                  {
-                    height: [15, 25, 40, 25, 50, 40, 25, 15, 10][i],
-                    backgroundColor: isDarkMode ? '#2C2C2C' : '#93C5FD'
-                  },
-                  i === 4 ? {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'} : null
-                ]} />
-              ))}
+          ) : (
+            <View style={styles.headerSlide3}>
+              <TouchableOpacity 
+                style={[styles.backPillBtn, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F1F5F9' }]} 
+                onPress={handleBack}
+              >
+                <Ionicons name="arrow-back" size={18} color={isDarkMode ? theme.text : '#1A1A1A'} style={{marginRight: 4}} />
+                <Text style={[styles.backPillText, { color: isDarkMode ? theme.text : '#64748B' }]}>Quay lại</Text>
+              </TouchableOpacity>
             </View>
+          )}
 
-            <View style={[styles.slide2TagPill, { backgroundColor: isDarkMode ? '#1E2C3F' : '#EFF6FF' }]}>
-              <Ionicons name="headset-outline" size={14} color={isDarkMode ? '#64B5F6' : '#1565C0'} style={{marginRight: 6}} />
-              <Text style={[styles.slide2TagText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>KỸ NĂNG NGHE</Text>
-            </View>
-            
-            <Text style={[styles.slideTitle, { color: theme.text }]}>Luyện Nghe VSTEP</Text>
-            <Text style={[styles.slideSubtitle, { color: theme.textSecondary }]}>
-              3 phần thi chuẩn format VSTEP với bài nghe thực tế, đa dạng chủ đề và phản hồi chi tiết
-            </Text>
-            
-            <View style={styles.statsContainer}>
-              <View style={[styles.statBox, { backgroundColor: theme.card }]}>
-                <Text style={[styles.statValue, { color: theme.text }]}>120+</Text>
-                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Bài nghe</Text>
-              </View>
-              <View style={[styles.statBox, { backgroundColor: theme.card }]}>
-                <Text style={[styles.statValue, { color: theme.text }]}>3</Text>
-                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Phần thi</Text>
-              </View>
-              <View style={[styles.statBox, { backgroundColor: theme.card }]}>
-                <Text style={[styles.statValue, { color: theme.text }]}>AI</Text>
-                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Phản hồi</Text>
-              </View>
-            </View>
-          </View>
-        )}
+          {/* CONTENT */}
+          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+            {currentIndex === 1 && (
+              <View style={styles.slide2Content}>
+                {/* Big Circle */}
+                <View style={styles.bigBlueCircle}>
+                  <Ionicons name="headset" size={70} color="#FFF" />
+                  <View style={styles.decoCircle1} />
+                  <View style={styles.decoCircle2} />
+                  <View style={[styles.decoCircle3, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F0F7FF' }]}>
+                    <Ionicons name="help" size={10} color={isDarkMode ? '#64B5F6' : '#1565C0'} />
+                  </View>
+                </View>
+                
+                {/* Sound Wave */}
+                <View style={styles.soundWave}>
+                  {[...Array(9)].map((_, i) => (
+                    <View key={i} style={[
+                      styles.waveBar, 
+                      {
+                        height: [15, 25, 40, 25, 50, 40, 25, 15, 10][i],
+                        backgroundColor: isDarkMode ? '#2C2C2C' : '#93C5FD'
+                      },
+                      i === 4 ? {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'} : null
+                    ]} />
+                  ))}
+                </View>
 
-        {currentIndex === 2 && (
-          <View style={styles.slide3Content}>
-            {/* Progress Bar */}
-            <View style={styles.topProgressBar}>
-              <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'}]} />
-              <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'}]} />
-              <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0'}]} />
-            </View>
+                <View style={[styles.slide2TagPill, { backgroundColor: isDarkMode ? '#1E2C3F' : '#EFF6FF' }]}>
+                  <Ionicons name="headset-outline" size={14} color={isDarkMode ? '#64B5F6' : '#1565C0'} style={{marginRight: 6}} />
+                  <Text style={[styles.slide2TagText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>KỸ NĂNG NGHE</Text>
+                </View>
+                
+                <Text style={[styles.slideTitle, { color: theme.text }]}>Luyện Nghe VSTEP</Text>
+                <Text style={[styles.slideSubtitle, { color: theme.textSecondary }]}>
+                  3 phần thi chuẩn format VSTEP với bài nghe thực tế, đa dạng chủ đề và phản hồi chi tiết
+                </Text>
+                
+                <View style={styles.statsContainer}>
+                  <View style={[styles.statBox, { backgroundColor: theme.card }]}>
+                    <Text style={[styles.statValue, { color: theme.text }]}>120+</Text>
+                    <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Bài nghe</Text>
+                  </View>
+                  <View style={[styles.statBox, { backgroundColor: theme.card }]}>
+                    <Text style={[styles.statValue, { color: theme.text }]}>3</Text>
+                    <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Phần thi</Text>
+                  </View>
+                  <View style={[styles.statBox, { backgroundColor: theme.card }]}>
+                    <Text style={[styles.statValue, { color: theme.text }]}>AI</Text>
+                    <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Phản hồi</Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
-            <Text style={[styles.slideTitleLeft, { color: theme.text }]}>Bạn đang ở trình độ nào?</Text>
-            <Text style={[styles.slideSubtitleLeft, { color: theme.textSecondary }]}>Chọn mức độ phù hợp để bắt đầu luyện tập hiệu quả nhất</Text>
-            
-            <View style={styles.levelsContainer}>
-              {levels.map((level) => {
-                const isSelected = selectedLevel === level.id;
-                return (
-                  <TouchableOpacity 
-                    key={level.id} 
-                    style={[
-                      styles.levelCard, 
-                      { backgroundColor: theme.card, borderColor: theme.border },
-                      isSelected && [styles.levelCardActive, { backgroundColor: isDarkMode ? '#1E2C3F' : '#F0F7FF', borderColor: isDarkMode ? '#64B5F6' : '#1565C0' }]
-                    ]}
-                    onPress={() => setSelectedLevel(level.id)}
-                    activeOpacity={0.8}
-                  >
-                    {/* Left Icon */}
-                    <View style={[styles.levelIconBadge, {backgroundColor: level.bg}]}>
-                      <Text style={[styles.levelIconText, {color: level.color}]}>{level.id}</Text>
-                    </View>
-                    
-                    <View style={styles.levelInfo}>
-                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        <Text style={[styles.levelTitle, { color: theme.text }]}>{level.title}</Text>
-                        <View style={[styles.miniBadge, {backgroundColor: level.bg}]}>
-                          <Text style={[styles.miniBadgeText, {color: level.color}]}>{level.id}</Text>
+            {currentIndex === 2 && (
+              <View style={styles.slide3Content}>
+                {/* Progress Bar */}
+                <View style={styles.topProgressBar}>
+                  <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'}]} />
+                  <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0'}]} />
+                  <View style={[styles.progressSegment, {backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0'}]} />
+                </View>
+
+                <Text style={[styles.slideTitleLeft, { color: theme.text }]}>Bạn đang ở trình độ nào?</Text>
+                <Text style={[styles.slideSubtitleLeft, { color: theme.textSecondary }]}>Chọn mức độ phù hợp để bắt đầu luyện tập hiệu quả nhất</Text>
+                
+                <View style={styles.levelsContainer}>
+                  {levels.map((level) => {
+                    const isSelected = selectedLevel === level.id;
+                    return (
+                      <TouchableOpacity 
+                        key={level.id} 
+                        style={[
+                          styles.levelCard, 
+                          { backgroundColor: theme.card, borderColor: theme.border },
+                          isSelected && [styles.levelCardActive, { backgroundColor: isDarkMode ? '#1E2C3F' : '#F0F7FF', borderColor: isDarkMode ? '#64B5F6' : '#1565C0' }]
+                        ]}
+                        onPress={() => setSelectedLevel(level.id)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.levelIconBadge, {backgroundColor: level.bg}]}>
+                          <Text style={[styles.levelIconText, {color: level.color}]}>{level.id}</Text>
                         </View>
-                        {isSelected && (
-                          <View style={[styles.miniBadge, {backgroundColor: isDarkMode ? '#1E2C3F' : '#E3F2FD', marginLeft: 4}]}>
-                            <Text style={[styles.miniBadgeText, {color: isDarkMode ? '#64B5F6' : '#1565C0', fontSize: 10}]}>Mục tiêu</Text>
+                        
+                        <View style={styles.levelInfo}>
+                          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                            <Text style={[styles.levelTitle, { color: theme.text }]}>{level.title}</Text>
+                            <View style={[styles.miniBadge, {backgroundColor: level.bg}]}>
+                              <Text style={[styles.miniBadgeText, {color: level.color}]}>{level.id}</Text>
+                            </View>
+                            {isSelected && (
+                              <View style={[styles.miniBadge, {backgroundColor: isDarkMode ? '#1E2C3F' : '#E3F2FD', marginLeft: 4}]}>
+                                <Text style={[styles.miniBadgeText, {color: isDarkMode ? '#64B5F6' : '#1565C0', fontSize: 10}]}>Mục tiêu</Text>
+                              </View>
+                            )}
                           </View>
-                        )}
-                      </View>
-                      <Text style={[styles.levelDesc, { color: theme.textSecondary }]}>{level.desc}</Text>
-                    </View>
-                    
-                    {/* Radio Button */}
-                    <View style={[
-                      styles.radioOuter, 
-                      { borderColor: theme.border },
-                      isSelected && [styles.radioOuterSelected, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0', borderColor: isDarkMode ? '#64B5F6' : '#1565C0' }]
-                    ]}>
-                      {isSelected && <Ionicons name="checkmark" size={14} color={isDarkMode ? '#121212' : '#FFF'} />}
-                    </View>
+                          <Text style={[styles.levelDesc, { color: theme.textSecondary }]}>{level.desc}</Text>
+                        </View>
+                        
+                        <View style={[
+                          styles.radioOuter, 
+                          { borderColor: theme.border },
+                          isSelected && [styles.radioOuterSelected, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0', borderColor: isDarkMode ? '#64B5F6' : '#1565C0' }]
+                        ]}>
+                          {isSelected && <Ionicons name="checkmark" size={14} color={isDarkMode ? '#121212' : '#FFF'} />}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                
+                <View style={[styles.infoBox, { backgroundColor: isDarkMode ? '#1E2C3F' : '#EFF6FF' }]}>
+                  <Ionicons name="information-circle" size={20} color={isDarkMode ? '#64B5F6' : '#1565C0'} style={{marginRight: 8}} />
+                  <Text style={[styles.infoBoxText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>Bạn có thể thay đổi trình độ bất cứ lúc nào trong phần Cài đặt</Text>
+                </View>
+              </View>
+            )}
+          </Animated.View>
+
+          {/* FOOTER */}
+          <View style={styles.footer}>
+            {currentIndex === 1 && (
+              <>
+                {renderDots()}
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity 
+                    style={[styles.skipBtn, { backgroundColor: theme.card, borderColor: theme.border }]} 
+                    onPress={handleSkip}
+                  >
+                    <Text style={[styles.skipBtnText, { color: theme.textSecondary }]}>Bỏ qua</Text>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-            
-            <View style={[styles.infoBox, { backgroundColor: isDarkMode ? '#1E2C3F' : '#EFF6FF' }]}>
-              <Ionicons name="information-circle" size={20} color={isDarkMode ? '#64B5F6' : '#1565C0'} style={{marginRight: 8}} />
-              <Text style={[styles.infoBoxText, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>Bạn có thể thay đổi trình độ bất cứ lúc nào trong phần Cài đặt</Text>
-            </View>
+                  <TouchableOpacity 
+                    style={[styles.nextBtn, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
+                    onPress={handleNext}
+                  >
+                    <Text style={[styles.nextBtnText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Tiếp theo</Text>
+                    <Ionicons name="arrow-forward" size={18} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 6 }} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {currentIndex === 2 && (
+              <>
+                {renderDots()}
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity 
+                    style={[styles.skipBtn, { backgroundColor: theme.card, borderColor: theme.border }]} 
+                    onPress={handleBack}
+                  >
+                    <Text style={[styles.skipBtnText, { color: theme.textSecondary }]}>Quay lại</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.nextBtn, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
+                    onPress={handleNext}
+                  >
+                    <Text style={[styles.nextBtnText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Xác nhận</Text>
+                    <Ionicons name="arrow-forward" size={18} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 6 }} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
-        )}
-      </View>
-
-      {/* FOOTER */}
-      <View style={styles.footer}>
-        {currentIndex === 1 && (
-          <>
-            <View style={styles.dotsContainer}>
-              <View style={[styles.dot, { backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0' }, styles.dotActive, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} />
-              <View style={[styles.dot, { backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0' }]} />
-              <View style={[styles.dot, { backgroundColor: isDarkMode ? '#2C2C2C' : '#E2E8F0' }]} />
-            </View>
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity 
-                style={[styles.skipBtn, { backgroundColor: theme.card, borderColor: theme.border }]} 
-                onPress={handleSkip}
-              >
-                <Text style={[styles.skipBtnText, { color: theme.textSecondary }]}>Bỏ qua</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.nextBtn, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
-                onPress={handleNext}
-              >
-                <Text style={[styles.nextBtnText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Tiếp theo</Text>
-                <Ionicons name="arrow-forward" size={18} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 6 }} />
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
-        {currentIndex === 2 && (
-          <TouchableOpacity 
-            style={[styles.primaryBtnFlat, { backgroundColor: isDarkMode ? '#64B5F6' : '#1565C0' }]} 
-            onPress={handleNext}
-          >
-            <Text style={[styles.primaryBtnFlatText, { color: isDarkMode ? '#121212' : '#FFFFFF' }]}>Xác nhận</Text>
-            <Ionicons name="arrow-forward" size={18} color={isDarkMode ? '#121212' : '#FFF'} style={{ marginLeft: 6 }} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </SafeAreaView>
+        </SafeAreaView>
+      )}
+    </View>
   );
 }
 

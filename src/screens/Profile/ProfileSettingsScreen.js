@@ -3,13 +3,14 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, SafeAreaView, StatusBar, Platform, Switch,
   Modal, TextInput, Alert, KeyboardAvoidingView,
-  TouchableWithoutFeedback, Keyboard, ActivityIndicator,
+  TouchableWithoutFeedback, Keyboard, ActivityIndicator, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { updateProfile, updatePassword } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 const MenuItem = ({ icon, iconColor, iconBg, label, onPress, rightElement }) => {
   const { isDarkMode, theme } = useTheme();
@@ -59,6 +60,26 @@ export default function ProfileSettingsScreen({ route, navigation }) {
   const [editName, setEditName] = useState('');
   const [editLevel, setEditLevel] = useState('B2');
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [selectedAvatarUri, setSelectedAvatarUri] = useState(null);
+
+  const handlePickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để đổi ảnh đại diện.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setSelectedAvatarUri(result.assets[0].uri);
+    }
+  };
 
   // Change Password States
   const [oldPassword, setOldPassword] = useState('');
@@ -89,10 +110,24 @@ export default function ProfileSettingsScreen({ route, navigation }) {
     }
     setUpdatingProfile(true);
     try {
-      const res = await updateProfile(editName.trim(), editLevel);
+      let avatarFile = null;
+      if (selectedAvatarUri) {
+        const uri = selectedAvatarUri;
+        const uriParts = uri.split('/');
+        const filename = uriParts[uriParts.length - 1];
+        const ext = filename.split('.').pop().toLowerCase();
+        avatarFile = {
+          uri,
+          name: filename,
+          type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        };
+      }
+
+      const res = await updateProfile(editName.trim(), editLevel, avatarFile);
       if (res.data?.success) {
         await updateUserState(res.data.user);
         setEditProfileModalVisible(false);
+        setSelectedAvatarUri(null);
         Alert.alert('Thành công', 'Cập nhật thông tin hồ sơ thành công!');
       } else {
         Alert.alert('Lỗi', res.data?.message || 'Có lỗi xảy ra.');
@@ -158,7 +193,11 @@ export default function ProfileSettingsScreen({ route, navigation }) {
         {/* User summary */}
         <View style={[styles.userCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={[styles.avatarBg, { backgroundColor: isDarkMode ? '#1565C033' : '#E3F2FD' }]}>
-            <Ionicons name="person" size={28} color="#1565C0" />
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person" size={28} color="#1565C0" />
+            )}
           </View>
           <View style={styles.userInfo}>
             <Text style={[styles.userName, { color: theme.text }]}>{name}</Text>
@@ -296,10 +335,32 @@ export default function ProfileSettingsScreen({ route, navigation }) {
                 <Text style={[styles.modalTitle, { color: theme.text }]}>Chỉnh sửa hồ sơ</Text>
                 <TouchableOpacity
                   style={[styles.modalCloseBtn, isDarkMode && { backgroundColor: '#2C2C2C' }]}
-                  onPress={() => setEditProfileModalVisible(false)}
+                  onPress={() => {
+                    setEditProfileModalVisible(false);
+                    setSelectedAvatarUri(null);
+                  }}
                 >
                   <Ionicons name="close" size={22} color={isDarkMode ? '#A0A0A0' : '#546E7A'} />
                 </TouchableOpacity>
+              </View>
+
+              {/* Avatar Selector UI */}
+              <View style={styles.avatarPickerContainer}>
+                <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.8} style={styles.avatarPickerWrapper}>
+                  {selectedAvatarUri ? (
+                    <Image source={{ uri: selectedAvatarUri }} style={styles.avatarPickerImage} />
+                  ) : user?.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={styles.avatarPickerImage} />
+                  ) : (
+                    <View style={[styles.avatarPickerPlaceholder, { backgroundColor: isDarkMode ? '#2C2C2C' : '#F1F5F9' }]}>
+                      <Ionicons name="camera-outline" size={28} color={isDarkMode ? '#A0A0A0' : '#78909C'} />
+                    </View>
+                  )}
+                  <View style={styles.avatarPickerBadge}>
+                    <Ionicons name="camera" size={14} color="#FFF" />
+                  </View>
+                </TouchableOpacity>
+                <Text style={[styles.avatarPickerHint, { color: theme.textSecondary }]}>Chạm để chọn ảnh mới</Text>
               </View>
 
               <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Họ và tên</Text>
@@ -500,18 +561,74 @@ const styles = StyleSheet.create({
   },
   logoutText: { fontSize: 15, fontWeight: '700', color: '#E53935' },
 
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+  },
+  avatarPickerContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  avatarPickerWrapper: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  avatarPickerImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  avatarPickerPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPickerBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#1565C0',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  avatarPickerHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 8,
+  },
   // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderRadius: 24,
     padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    width: '90%',
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   modalHeader: {
     flexDirection: 'row',

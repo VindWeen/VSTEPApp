@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { uploadAvatar, deleteImage } = require('../services/cloudinary.service');
 
 // Helper tạo JWT token
 const signToken = (userId) => {
@@ -98,6 +99,15 @@ const updateProfile = async (req, res, next) => {
     }
     if (name) user.name = name;
     if (level) user.level = level;
+
+    if (req.file) {
+      if (user.avatarPublicId) {
+        await deleteImage(user.avatarPublicId);
+      }
+      const uploadResult = await uploadAvatar(req.file.buffer, req.file.originalname, user._id.toString());
+      user.avatar = uploadResult.imageUrl;
+      user.avatarPublicId = uploadResult.publicId;
+    }
 
     await user.save({ validateBeforeSave: true });
 

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, StatusBar, Platform, ActivityIndicator,
+  StyleSheet, SafeAreaView, StatusBar, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -214,7 +214,11 @@ export default function ProfileScreen() {
         {/* User card */}
         <View style={[styles.userCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={[styles.avatarBg, isDarkMode && { backgroundColor: '#1565C022' }]}>
-            <Ionicons name="person" size={34} color={isDarkMode ? '#2196F3' : '#1565C0'} />
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person" size={34} color={isDarkMode ? '#2196F3' : '#1565C0'} />
+            )}
             <View style={[styles.avatarVerified, { borderColor: theme.card }]}>
               <Ionicons name="checkmark" size={10} color="#fff" />
             </View>
@@ -363,6 +367,11 @@ const styles = StyleSheet.create({
   avatarBg: {
     width: 64, height: 64, borderRadius: 16, backgroundColor: '#E3F2FD',
     justifyContent: 'center', alignItems: 'center', position: 'relative',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
   },
   avatarVerified: {
     position: 'absolute', bottom: -2, right: -2,

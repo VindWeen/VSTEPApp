@@ -46,4 +46,49 @@ const deleteAudio = async (publicId) => {
   }
 };
 
-module.exports = { uploadAudio, deleteAudio };
+/**
+ * Upload file image buffer lên Cloudinary
+ * @param {Buffer} buffer
+ * @param {string} filename
+ * @param {string} userId
+ * @returns {{ imageUrl: string, publicId: string }}
+ */
+const uploadAvatar = (buffer, filename, userId) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'image',
+        folder: `vstep/avatars/user_${userId}`,
+        public_id: `avatar_${Date.now()}`,
+        overwrite: true,
+        invalidate: true,
+      },
+      (error, result) => {
+        if (error) {
+          return reject(new Error(`Cloudinary upload thất bại: ${error.message}`));
+        }
+
+        resolve({
+          imageUrl: result.secure_url,
+          publicId: result.public_id,
+        });
+      }
+    );
+
+    const { Readable } = require('stream');
+    const readable = new Readable();
+    readable.push(buffer);
+    readable.push(null);
+    readable.pipe(uploadStream);
+  });
+};
+
+const deleteImage = async (publicId) => {
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+  } catch (error) {
+    console.warn('Không thể xóa file ảnh Cloudinary:', error.message);
+  }
+};
+
+module.exports = { uploadAudio, deleteAudio, uploadAvatar, deleteImage };

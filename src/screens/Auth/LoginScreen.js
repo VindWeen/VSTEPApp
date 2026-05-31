@@ -112,17 +112,6 @@ export default function LoginScreen() {
                 </>
               )}
             </TouchableOpacity>
-
-            <View style={styles.dividerContainer}>
-              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-              <Text style={[styles.dividerText, { color: theme.textSecondary }]}>hoặc</Text>
-              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-            </View>
-
-            <TouchableOpacity style={[styles.socialBtn, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Ionicons name="logo-google" size={20} color="#DB4437" />
-              <Text style={[styles.socialBtnText, { color: theme.text }]}>Tiếp tục với Google</Text>
-            </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
@@ -131,15 +120,6 @@ export default function LoginScreen() {
               <Text style={[styles.footerLink, { color: isDarkMode ? '#64B5F6' : '#1565C0' }]}>Đăng ký</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Quick test login */}
-          <TouchableOpacity
-            style={[styles.quickBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
-            onPress={() => { setEmail('admin@gmail.com'); setPassword('123456'); }}
-          >
-            <Ionicons name="flash-outline" size={16} color={theme.placeholder} style={{ marginRight: 4 }} />
-            <Text style={[styles.quickBtnText, { color: theme.textSecondary }]}>Dev: Điền tài khoản test</Text>
-          </TouchableOpacity>
 
         </ScrollView>
       </KeyboardAvoidingView>

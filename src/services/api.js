@@ -29,8 +29,18 @@ export const register = (name, email, password, level) =>
 
 export const getMe = () => api.get('/auth/me');
 
-export const updateProfile = (name, level) =>
-  api.put('/auth/profile', { name, level });
+export const updateProfile = (name, level, avatarFile) => {
+  if (avatarFile) {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('level', level);
+    formData.append('avatar', avatarFile);
+    return api.put('/auth/profile', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  }
+  return api.put('/auth/profile', { name, level });
+};
 
 export const updatePassword = (oldPassword, newPassword) =>
   api.put('/auth/password', { oldPassword, newPassword });

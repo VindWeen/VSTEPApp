@@ -40,11 +40,30 @@ const uploadAudio = multer({
   },
 });
 
+// Chỉ chấp nhận file ảnh
+const imageFileFilter = (req, file, cb) => {
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Định dạng file không được hỗ trợ. Chỉ chấp nhận JPEG, JPG, PNG, WEBP.'), false);
+  }
+};
+
+// Upload middleware cho ảnh (max 5MB)
+const uploadImage = multer({
+  storage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+});
+
 // Error handler cho multer
 const handleMulterError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ success: false, message: 'File quá lớn. Tối đa 20MB.' });
+      return res.status(400).json({ success: false, message: 'File quá lớn. Tối đa 5MB đối với ảnh và 20MB đối với audio.' });
     }
     return res.status(400).json({ success: false, message: err.message });
   }
@@ -54,4 +73,4 @@ const handleMulterError = (err, req, res, next) => {
   next();
 };
 
-module.exports = { uploadAudio, handleMulterError };
+module.exports = { uploadAudio, uploadImage, handleMulterError };

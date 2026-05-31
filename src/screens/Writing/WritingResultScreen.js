@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 
-function ScoreSegments({ value, max = 5, color = '#E65100' }) {
+function ScoreSegments({ value, max = 10, color = '#E65100' }) {
   const { theme, isDarkMode } = useTheme();
   const segments = 10;
   const filled = Math.round((value / max) * segments);
@@ -36,8 +36,8 @@ function ScoreSegments({ value, max = 5, color = '#E65100' }) {
 function CriteriaCard({ label, value }) {
   const { theme, isDarkMode } = useTheme();
   const color = isDarkMode
-    ? (value >= 4.5 ? '#64B5F6' : value >= 3.5 ? '#81C784' : value >= 2.5 ? '#FFB74D' : '#E57373')
-    : (value >= 4.5 ? '#1565C0' : value >= 3.5 ? '#2E7D32' : value >= 2.5 ? '#E65100' : '#D32F2F');
+    ? (value >= 8.5 ? '#64B5F6' : value >= 6.0 ? '#81C784' : value >= 4.0 ? '#FFB74D' : '#E57373')
+    : (value >= 8.5 ? '#1565C0' : value >= 6.0 ? '#2E7D32' : value >= 4.0 ? '#E65100' : '#D32F2F');
   return (
     <View style={[styles.criteriaCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
       <Text style={[styles.criteriaLabel, { color: theme.textSecondary }]}>{label}</Text>

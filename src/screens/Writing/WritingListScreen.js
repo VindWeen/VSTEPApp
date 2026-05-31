@@ -248,11 +248,11 @@ export default function WritingListScreen({ navigation }) {
                     <View
                       style={[
                         styles.progressBarFill,
-                        { width: `${Math.min((item.bestBand / 9) * 100, 100)}%`, backgroundColor: progressColor },
+                        { width: `${Math.min((item.bestBand / 10) * 100, 100)}%`, backgroundColor: progressColor },
                       ]}
                     />
                   </View>
-                  <Text style={[styles.bandText, { color: primaryColor }]}>{item.bestBand.toFixed(1)}/9.0</Text>
+                  <Text style={[styles.bandText, { color: primaryColor }]}>{item.bestBand.toFixed(1)}/10.0</Text>
                 </View>
               ) : null}
             </View>

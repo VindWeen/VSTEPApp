@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 
 const speakingFeedbackSchema = new mongoose.Schema(
   {
-    band: { type: Number, min: 1, max: 5 },
-    fluency: { type: Number, min: 1, max: 5 },
-    lexical: { type: Number, min: 1, max: 5 },
-    grammar: { type: Number, min: 1, max: 5 },
-    pronunciation: { type: Number, min: 1, max: 5 },
+    band: { type: Number, min: 0, max: 10 },
+    fluency: { type: Number, min: 0, max: 10 },
+    lexical: { type: Number, min: 0, max: 10 },
+    grammar: { type: Number, min: 0, max: 10 },
+    pronunciation: { type: Number, min: 0, max: 10 },
     strengths: [String],
     improvements: [String],
     suggestions: [String],

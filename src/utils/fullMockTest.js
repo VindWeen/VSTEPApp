@@ -271,16 +271,14 @@ export const isFullMockReadyForSubmit = (session) =>
 
 export const calculateObjectiveBand = (skill, correct = 0, total = 0) => {
   if (!total) return 0;
-  const scaledScore = Math.round((correct / total) * 40);
-  const table = skill === 'listening' ? LISTENING_BAND_TABLE : READING_BAND_TABLE;
-  return table.find((item) => scaledScore >= item.min)?.band || 0;
+  const score = (correct / total) * 10;
+  return Math.max(0, Math.min(10, roundToNearestHalf(score)));
 };
 
 export const convertFiveScaleToNineBand = (value) => {
   const numericValue = Number(value);
   if (!numericValue) return 0;
-  const converted = 1 + (numericValue - 1) * 2;
-  return Math.max(0, Math.min(9, roundToNearestHalf(converted)));
+  return Math.max(0, Math.min(10, roundToNearestHalf(numericValue)));
 };
 
 export const calculateOverallBand = (bands = []) => {

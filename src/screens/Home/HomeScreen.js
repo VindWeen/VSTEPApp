@@ -108,7 +108,7 @@ const normalizeSpeakingItem = (item) => ({
 const getActivityMeta = (item) => {
   if (item.skill === 'listening' || item.skill === 'reading') {
     const band = calculateObjectiveBand(item.skill, item.score, item.total);
-    return `${formatDateTime(item.dateValue)} • Band ${band.toFixed(1)}/9.0`;
+    return `${formatDateTime(item.dateValue)} • Band ${band.toFixed(1)}/10.0`;
   }
 
   if (item.skill === 'writing') {
@@ -130,17 +130,17 @@ function RadarChart({ reading = 0, listening = 0, writing = 0, speaking = 0, isD
   const centerX = 120;
   const centerY = 100;
 
-  const rR = (reading / 9) * maxR;
-  const rL = (listening / 9) * maxR;
-  const rS = (speaking / 9) * maxR;
-  const rW = (writing / 9) * maxR;
+  const rR = (reading / 10) * maxR;
+  const rL = (listening / 10) * maxR;
+  const rS = (speaking / 10) * maxR;
+  const rW = (writing / 10) * maxR;
 
   return (
     <View style={styles.radarContainer}>
       <Svg width="240" height="200" style={StyleSheet.absoluteFill}>
         {/* Concentric grid circles */}
-        <Circle cx={centerX} cy={centerY} r="23.3" stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" fill="none" />
-        <Circle cx={centerX} cy={centerY} r="46.6" stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" fill="none" />
+        <Circle cx={centerX} cy={centerY} r="28" stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" fill="none" />
+        <Circle cx={centerX} cy={centerY} r="42" stroke={isDarkMode ? '#333333' : '#E2E8F0'} strokeWidth="1" fill="none" />
         <Circle cx={centerX} cy={centerY} r="70" stroke={isDarkMode ? '#444444' : '#CBD5E1'} strokeWidth="1" fill="none" />
 
         {/* Grid axis lines */}
@@ -615,7 +615,7 @@ export default function HomeScreen() {
             <View style={styles.activityInfo}>
               <Text style={[styles.activityTitle, { color: theme.text }]}>Mock Test 4 kỹ năng</Text>
               <Text style={[styles.activityMeta, { color: theme.textSecondary }]}>
-                {formatDateTime(latestFullMock.completedAt)} • Overall {latestFullMock.overallBand?.toFixed(1) || '0.0'}/9.0
+                {formatDateTime(latestFullMock.completedAt)} • Overall {latestFullMock.overallBand?.toFixed(1) || '0.0'}/10.0
               </Text>
             </View>
             <TouchableOpacity

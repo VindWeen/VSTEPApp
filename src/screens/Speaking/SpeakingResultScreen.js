@@ -13,7 +13,7 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 
-function ScoreSegments({ value, max = 5, color }) {
+function ScoreSegments({ value, max = 10, color }) {
   const { theme, isDarkMode } = useTheme();
   const segments = 10;
   const filled = Math.round((value / max) * segments);

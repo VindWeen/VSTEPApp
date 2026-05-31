@@ -367,7 +367,7 @@ export default function HistoryScreen({ navigation }) {
     const meta = getDynamicMeta(item.skill, isDarkMode);
     const scoreLabel =
       item.skill === 'mocktest'
-        ? `Overall ${Number(item.overallBand || 0).toFixed(1)}/9.0`
+        ? `Overall ${Number(item.overallBand || 0).toFixed(1)}/10.0`
         : item.skill === 'listening' || item.skill === 'reading'
           ? `${item.score}/${item.total} đúng`
           : `${item.totalWordCount || item.totalAudioDuration ? (item.totalWordCount ? `${item.totalWordCount} từ` : formatDuration(item.totalAudioDuration)) : item.level}`;
